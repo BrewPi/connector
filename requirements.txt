@@ -1,0 +1,6 @@
+simplejson
+pyserial
+influxdb
+fs
+pyhamcrest
+mockito

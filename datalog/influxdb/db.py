@@ -27,23 +27,22 @@ class InfluxDBTimeSeries(TimeSeries):
         >>> ts.cols
         ['time', 'c1', 'c2']
         >>> ts.select_cols
-        'time,c1,c2'
+        'c1,c2'
 
         >>> ts = InfluxDBTimeSeries('db', 'abc', ['c1', 'c2'])
         Traceback (most recent call last):
         ...
-        ValueError: first column must be 'time
+        ValueError: first column must be 'time'
         """
         if not cols or cols[0]!='time':
-            raise ValueError("first column must be 'time")
+            raise ValueError("first column must be 'time'")
         self.repo = repo
         self.name = name
         self.cols = cols
-        self.select_cols = ','.join(cols)
+        self.select_cols = ','.join(cols[1:])
 
     def range(self) -> (datetime, datetime):
         return time_of(self.first_datapoint()), time_of(self.latest_datapoint())
-
 
     def _query_to_rows(self, qr):
         """ Converts a query result to rows
@@ -51,12 +50,12 @@ class InfluxDBTimeSeries(TimeSeries):
         columns = qr['columns']
         datapoints = self._datapoints(qr)
         for dp in datapoints:
-            dp = select_columns(dp, columns, self.cols_time)
+            dp = select_columns(dp, columns, self.cols)
             row = datapoint_to_row(dp)
             yield row
 
     def rows(self):
-        qr = self._query('select %(select_cols)s from %(name)s order asc')
+        qr = self._query("select %(select_cols)s from %(name)s where time < now()+24h order asc")
         yield from self._query_to_rows(qr[0])
 
 
@@ -65,7 +64,7 @@ class InfluxDBTimeSeries(TimeSeries):
         >>> d = InfluxDBTimeSeries(None,"abc", ['time','col1','col2']). \
             _create_bulk_request([ [datetime(1970,1,2,0,0,0), 1, 2] ])
         >>> list(sorted(d.items()))       # ensure order doesn't change
-        [('columns', ['time', 'col1', 'col2']), ('name', 'abc'), ('points', [[86400000.0, 1, 2]])]
+        [('columns', ['time', 'col1', 'col2']), ('name', 'abc'), ('points', [[86400000, 1, 2]])]
         """
         bulk_request = self._build_json_request()
         for data in bulkdata:
@@ -78,7 +77,7 @@ class InfluxDBTimeSeries(TimeSeries):
     def _row_to_datapoint(self, data):
         """ converts the row to a single request format. (Converting the datetime to millis since epoch)
         >>> InfluxDBTimeSeries(None,"", ["time"])._row_to_datapoint([datetime(1970,1,2,0,0,0), 1, 2])
-        [86400000.0, 1, 2]
+        [86400000, 1, 2]
         """
         time_millis = uts_datetime_to_millis(data[0])
         values = [time_millis]
@@ -133,6 +132,8 @@ class InfluxDBTimeSeries(TimeSeries):
         """ substitutes the series name in the query.
         >>> InfluxDBTimeSeries(None,'bar',['time'])._prepare_query('foo %(name)s quux')
         'foo bar quux'
+        >>> InfluxDBTimeSeries(None,'bar',['time', 'orange'])._prepare_query('foo %(select_cols)s %(name)s quux')
+        'foo time,orange bar quux'
         """
         return q % self.__dict__
 
