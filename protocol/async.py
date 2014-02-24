@@ -1,0 +1,203 @@
+"""
+The original and ng brewpi protocols are asynchronous. They are represented abstractly as two message queues.
+"""
+from abc import abstractmethod
+from collections import defaultdict
+
+from concurrent.futures import Future
+from io import IOBase
+import types
+from conduit.base import Conduit
+
+
+class FutureValue(Future):
+    """ describes a value that may have not yet been computed. Callers can check if the value has arrived, or chose to
+        wait until the value has arrived.
+        If an exception is encountered computing the value, it is set."""
+
+    def __init__(self):
+        super().__init__()
+        self.value_extractor = lambda x: x
+
+    @property
+    def value(self):
+        """ allows the provider to set the result value but provide a different (derived) value to callers. """
+        return self.value_extractor(self.result())
+
+
+class Request:
+    """ encapsulates the request data. """
+
+    @abstractmethod
+    def to_stream(self, file: IOBase):
+        """ Encodes the request as bytes in a stream.
+        :param file: the file-like instance to stream this request to.
+        """
+        raise NotImplementedError
+
+    @property
+    def response_keys(self):
+        """ retrieves an iterable over keys that are used to correlate requests with corresponding responses. """
+        raise NotImplementedError
+        # todo - maybe just use simple iteration looking for a matching response?
+
+
+class Response:
+    """ Represents a response from a controller method.
+    """
+
+    @abstractmethod
+    def from_stream(self, file):
+        """
+        :return: returns the response decoded from the stream. This may be a distinct instance in cases
+            where this response is being used as a factory.
+        :rtype:Response
+        """
+        raise NotImplementedError
+
+    @property
+    def response_key(self):
+        """
+        :return: a key that can be used to pair this response with a previous request.
+        """
+        raise NotImplementedError
+
+    @property
+    def value(self):
+        raise NotImplementedError
+
+
+class FutureResponse(FutureValue):
+    """ Relates a request and it's future response."""
+
+    def __init__(self, request: Request):
+        super().__init__()
+        self._request = request
+        self.value_extractor = lambda r: r.value
+
+    @property
+    def request(self):
+        return self._request
+
+    @property
+    def response(self):
+        """ blocking fetch of the response. """
+        return self.result()
+
+    @response.setter
+    def response(self, value: Response):
+        """
+        Sets the successful completion of this future result.
+        :param value: The response associated with this future's request.
+        """
+        self.set_result(value)
+
+
+class ResponseSupport(Response):
+    """ Provides a simple implementation for the value attribute, and request_key.
+        Writing to stream uses __repr__
+    """
+
+    def __init__(self, request_key=None):
+        self._value = None
+        self._request_key = request_key
+
+    def from_stream(self, file):
+        return self
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        """
+        :param value:   The new value to assign the value of this response.
+        """
+        self._value = value
+
+    @property
+    def request_key(self):
+        return self._request_key
+
+
+class BaseAsyncProtocolHandler:
+    """
+    Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not dndefined
+    at this level, but the class takes care of registering requests sent along with a future response and associating
+    incoming responses with the originating request.
+    """
+    def __init__(self, conduit: Conduit, matcher=None):
+        self._conduit = conduit
+        self._requests = defaultdict(list)
+        self._unmatched = []
+        if matcher:
+            self._matching_futures = types.MethodType(matcher, self, BaseAsyncProtocolHandler)
+
+    def add_unmatched_response_handler(self, fn):
+        """
+        :param fn: A callable that takes a single argument. This function is called with any responses that did not
+                originate from a request (such as logs, events and autonomous actions.)
+        """
+        if not fn in self._unmatched:
+            self._unmatched.append(fn)
+
+    def remove_unmatched_response_handler(self, fn):
+        self._unmatched.remove(fn)
+
+    def async_request(self, request: Request) -> FutureResponse:
+        """ Asynchronously sends a request request to the conduit.
+        :param request: The request to send.
+        :return: A FutureResponse where the corresponding response to the request can be retrieved when it arrives.
+        """
+        future = FutureResponse(request)
+        self._register_request(request)
+        self._stream_request(request)
+        return future
+
+    def _stream_request(self, request):
+        request.to_stream(self._conduit.output)
+
+    def _register_request(self, request: Request):
+        if request.response_keys:
+            for key in request.response_keys:
+                list = self._requests[key]
+                list.append(request)
+        # todo - handle cancelled/timedout etc.. or otherwise unclaimed FutureResponse objects in
+        # would really like weak referencing here.
+
+    def _unregister_request(self, request: Request):
+        if request.response_keys:
+            for key in request.response_keys:
+                self._requests.get(key).remove(request)
+
+    @abstractmethod
+    def _decode_response(self)->Response:
+        """ reads the next response from the conduit. """
+        raise NotImplementedError
+
+    def read_response(self):
+        """ reads the next response from the conduit and processes it. """
+        response = self._decode_response()
+        return self.process_response(response)
+
+    def process_response(self, response: Response)->Response:
+        if response is not None:
+            futures = self._matching_futures(response)
+            if futures:
+                for f in futures:
+                    self._set_future_response(f, response)
+            else:
+                for callback in self._unmatched:
+                    callback(response)
+        return response
+
+    def _set_future_response(self, future: FutureResponse, response):
+        """ sets the response on the given future and removes the associated request, now that it has been handled. """
+        future.response = response
+        self._unregister_request(future.request)
+
+
+    def _matching_futures(self, response):
+        """ finds matching futures for the given response """
+        return self._requests.get(response.response_key)

@@ -4,3 +4,4 @@ influxdb
 fs
 pyhamcrest
 mockito
+configobj
