@@ -95,12 +95,11 @@ class FutureResponse(FutureValue):
 
 class ResponseSupport(Response):
     """ Provides a simple implementation for the value attribute, and request_key.
-        Writing to stream uses __repr__
     """
 
-    def __init__(self, request_key=None):
-        self._value = None
+    def __init__(self, request_key=None, value=None):
         self._request_key = request_key
+        self._value = value
 
     def from_stream(self, file):
         return self
@@ -126,6 +125,10 @@ class BaseAsyncProtocolHandler:
     Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not dndefined
     at this level, but the class takes care of registering requests sent along with a future response and associating
     incoming responses with the originating request.
+
+    The primary method to use is async_request(r:Request) which asynchronously sends the request and fetches the
+    response. The returned FutureResponse can be used by the caller to check if the response has arrived or wait
+    for the response.
     """
     def __init__(self, conduit: Conduit, matcher=None):
         self._conduit = conduit
