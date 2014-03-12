@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from io import IOBase, RawIOBase
+from io import IOBase, RawIOBase, BufferedIOBase
 
 __author__ = 'mat'
 
@@ -11,14 +11,14 @@ class Conduit:
 
     @property
     @abstractmethod
-    def input(self) -> RawIOBase:
+    def input(self) -> IOBase:
         """ fetches the I/O stream that provides input.
             Callers can use the usual readXXX() methods. """
         pass
 
     @property
     @abstractmethod
-    def output(self) -> RawIOBase:
+    def output(self) -> IOBase:
         """ fetches the I/O stream that provides output.
             Callers can use the usual writeXXX() methods. """
         pass
@@ -42,14 +42,14 @@ class ConduitDecorator(Conduit):
     def close(self):
         super().close()
 
-    def input(self) -> RawIOBase:
+    def input(self) -> IOBase:
         return super().input
+
+    def output(self) -> IOBase:
+        return super().output
 
     def open(self) -> bool:
         return super().open
-
-    def output(self) -> RawIOBase:
-        return super().output
 
     def __init__(self, decorate:Conduit):
         self.decorate = decorate
@@ -58,11 +58,11 @@ class ConduitDecorator(Conduit):
 class DefaultConduit(Conduit):
     """ provides the conduit streams from specific read/write file-like types (which may be the same value) """
 
-    def __init__(self, read: RawIOBase=None, write: RawIOBase=None):
+    def __init__(self, read: IOBase=None, write: IOBase=None):
         self._read = read
         self._write = write if write is not None else read
 
-    def set_streams(self, read: RawIOBase, write: RawIOBase=None):
+    def set_streams(self, read: IOBase, write: IOBase=None):
         self._read = read
         self._write = write if write is not None else read
 
@@ -76,9 +76,9 @@ class DefaultConduit(Conduit):
         return True
 
     @property
-    def input(self) -> RawIOBase:
+    def input(self) -> IOBase:
         return self._read
 
     @property
-    def output(self) -> RawIOBase:
+    def output(self) -> IOBase:
         return self._write

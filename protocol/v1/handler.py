@@ -203,6 +203,7 @@ class MessageResponse(Response):
         if self.defn.format is not None:
             self._value = self.defn.format.scan(file)
 
+    @property
     def response_key(self):
         return self.defn.char
 

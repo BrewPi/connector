@@ -116,7 +116,7 @@ class ResponseSupport(Response):
         self._value = value
 
     @property
-    def request_key(self):
+    def response_key(self):
         return self._request_key
 
 
@@ -154,25 +154,30 @@ class BaseAsyncProtocolHandler:
         :return: A FutureResponse where the corresponding response to the request can be retrieved when it arrives.
         """
         future = FutureResponse(request)
-        self._register_request(request)
+        self._register_future(future)
         self._stream_request(request)
         return future
 
     def _stream_request(self, request):
+        """ arranges for the request to be streamed. This implementation is synchronous, but subclasses may choose
+            to send the request asynchronously. """
         request.to_stream(self._conduit.output)
+        self._stream_request_sent(request)
 
-    def _register_request(self, request: Request):
+    def _register_future(self, future: FutureResponse):
+        request = future.request
         if request.response_keys:
             for key in request.response_keys:
-                list = self._requests[key]
-                list.append(request)
+                l = self._requests[key]
+                l.append(future)
         # todo - handle cancelled/timedout etc.. or otherwise unclaimed FutureResponse objects in
         # would really like weak referencing here.
 
-    def _unregister_request(self, request: Request):
+    def _unregister_future(self, future: FutureResponse):
+        request = future.request
         if request.response_keys:
             for key in request.response_keys:
-                self._requests.get(key).remove(request)
+                self._requests.get(key).remove(future)
 
     @abstractmethod
     def _decode_response(self)->Response:
@@ -198,9 +203,13 @@ class BaseAsyncProtocolHandler:
     def _set_future_response(self, future: FutureResponse, response):
         """ sets the response on the given future and removes the associated request, now that it has been handled. """
         future.response = response
-        self._unregister_request(future.request)
+        self._unregister_future(future)
 
 
     def _matching_futures(self, response):
         """ finds matching futures for the given response """
         return self._requests.get(response.response_key)
+
+    def _stream_request_sent(self, request):
+        """ template method for subclasses to handle when a request has been sent """
+        pass
