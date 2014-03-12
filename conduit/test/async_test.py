@@ -1,6 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, Future
 from queue import Queue, Empty
 from abc import abstractmethod
+import unittest
 from ..base import Conduit
 
 __author__ = 'mat'
@@ -55,3 +56,4 @@ class AsyncConnectorTest:
     @abstractmethod
     def createConnections(self) -> [Conduit]:
         pass
+

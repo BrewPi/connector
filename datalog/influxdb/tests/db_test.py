@@ -1,3 +1,4 @@
+import os
 from unittest.mock import MagicMock, Mock
 
 __author__ = 'mat'
@@ -10,6 +11,8 @@ from hamcrest import assert_that, is_, equal_to, has_length
 import time
 import datalog.convert
 
+runInfluxDbTest = os.environ.get('TEST_INFLUXDB')
+
 test_repo = InfluxDBTimeSeriesRepo(*datalog.convert.brewpi_test_influxdb_config)
 
 t = datetime.utcnow()
@@ -19,7 +22,7 @@ t1 = t2 - timedelta(seconds=1)
 d1 = [t1, 20, 30, "beer is good", 2, 3, "fridge is floating", 4, 23.2]
 d2 = [t2, 20, 30, None, None, 3, None, 4, 23.2]
 
-
+@unittest.skipUnless(runInfluxDbTest, "influx db tests disabled (check username/password)")
 class InfluxDBTimeSeriesRepoTest(unittest.TestCase):
     """ a simple smoke test to verify the code. More involved tests will be done at the functional test level. """
 

@@ -1,6 +1,8 @@
 from audioop import reverse
 from concurrent.futures import ThreadPoolExecutor, Future
+import os
 from queue import Queue, Empty
+import string
 from conduit.base import Conduit
 from conduit.test.async_test import AsyncConnectorTest
 import serial
@@ -10,12 +12,15 @@ from conduit.serial import serial_connector_factory
 
 __author__ = 'mat'
 
-
 # todo - factor out port to environment
-port = "COM16"      # a regular working COM port (e.g. an arduino)
-invalid_port = "ABC___not_found"
+port = os.environ.get('TEST_SERIAL_PORT')
+virtualPortPairStr = os.environ.get('TEST_VIRTUAL_PAIR')      # pair of virtual ports connected as a null modem
 
-virtualPortPair = "COM7","COM8"     # pair of virtual ports connected as a null modem
+virtualPortPair = None
+if virtualPortPairStr:
+    virtualPortPair = string.split(virtualPortPairStr, ",")
+
+invalid_port = "ABC___not_found"
 baud = 57600
 
 class ConnectorSerialTestCase(unittest.TestCase):
@@ -37,6 +42,7 @@ class ConnectorSerialTestCase(unittest.TestCase):
         factory = serial_connector_factory(invalid_port, baud, timeout=1)
         self.assertRaises(serial.SerialException, factory)
 
+    @unittest.skipIf(not port, "arduino port not defined")
     def test_read_serial(self):
         factory = serial_connector_factory(port, baud, timeout=1)
         self.connection = factory()
@@ -44,6 +50,7 @@ class ConnectorSerialTestCase(unittest.TestCase):
         line = input.read()
         self.assertIsNotNone(line)
 
+    @unittest.skipIf(not port, "arduino port not defined")
     def test_write_serial(self):
         factory = serial_connector_factory(port, baud, timeout=1)
         self.connection = factory()
@@ -56,7 +63,7 @@ class ConnectorSerialTestCase(unittest.TestCase):
         s = "abc".encode()
         self.connection.output.writelines(s)
 
-
+@unittest.skipUnless(virtualPortPair, "need virtual serial ports defined")
 class VirtualPortSerialTestCase(AsyncConnectorTest, unittest.TestCase):
 
     def createConnections(self):
