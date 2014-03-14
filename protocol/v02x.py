@@ -1,79 +1,21 @@
-from io import IOBase, BufferedIOBase
+from io import BufferedIOBase
 import json
-from concurrent.futures import Future
-from queue import Queue
-from threading import Lock
 from abc import abstractmethod
-from conduit.base import Conduit
+import string
 from protocol.async import FutureValue, Request, BaseAsyncProtocolHandler, FutureResponse, Response
+from protocol.version import VersionParser
 
 __author__ = 'mat'
 
+def brewpi_v02x_protocol_sniffer(line, conduit):
+    result = None
+    if line.startswith("N:"):
+        info = VersionParser(line[2:])
+        if info.major == 0 and info.minor == 2:
+            if info.revision == 3:
+                return BrewpiProtocolV023(conduit)
+    return result
 
-class AvrInfo:
-    """ Parses and stores the version and other compile-time details reported by the Arduino """
-    version = "v"
-    build = "n"
-    simulator = "y"
-    board = "b"
-    shield = "s"
-    log = "l"
-
-    shield_revA = "revA"
-    shield_revC = "revC"
-
-    shields = {1: shield_revA, 2: shield_revC}
-
-    board_leonardo = "leonardo"
-    board_standard = "standard"
-    board_mega = "mega"
-
-    boards = {'l': board_leonardo, 's': board_standard, 'm': board_mega}
-
-    def __init__(self, s=None):
-        self.major = 0
-        self.minor = 0
-        self.revision = 0
-        self.version = None
-        self.build = 0
-        self.simulator = False
-        self.board = None
-        self.shield = None
-        self.log = 0
-        self.parse(s)
-
-
-    def parse(self, s):
-        if s is None or len(s) == 0:
-            pass
-        else:
-            s = s.strip()
-            if s[0] == '{':
-                self.parseJsonVersion(s)
-            else:
-                self.parseStringVersion(s)
-
-    def parseJsonVersion(self, s):
-        j = json.loads(s)
-        if AvrInfo.version in j:
-            self.parseStringVersion(j[AvrInfo.version])
-        if AvrInfo.simulator in j:
-            self.simulator = j[AvrInfo.simulator] == 1
-        if AvrInfo.board in j:
-            self.board = AvrInfo.boards.get(j[AvrInfo.board])
-        if AvrInfo.shield in j:
-            self.shield = AvrInfo.shields.get(j[AvrInfo.shield])
-        if AvrInfo.log in j:
-            self.log = j[AvrInfo.log]
-        if AvrInfo.build in j:
-            self.build = j[AvrInfo.build]
-
-    def parseStringVersion(self, s):
-        s = s.strip()
-        parts = [int(x) for x in s.split('.')]
-        parts += [0] * (3 - len(parts))  # pad to 3
-        self.major, self.minor, self.revision = parts[0], parts[1], parts[2]
-        self.version = s
 
 
 class CharacterLCDInfo:
@@ -86,7 +28,7 @@ class CharacterLCDInfo:
 
     @property
     def dimensions(self):
-        return (self.width, self.height)
+        return self.width, self.height
 
 
 class MessageFormat:
@@ -105,11 +47,6 @@ class MessageFormat:
         pass
 
 
-def tobytes(arg):
-    if type(arg) is type(""):
-        arg = bytearray(arg, 'ascii')
-    return arg
-
 
 class JSONFormat(MessageFormat):
     def produce(self, item, writer):
@@ -126,18 +63,26 @@ class JSONFormat(MessageFormat):
 class VersionFormat(MessageFormat):
     def scan(self, reader):
         line = reader.readline()
-        return AvrInfo(line)
+        return VersionParser(line)
 
     def produce(self, item, writer):
         raise NotImplementedError
 
 
 class LCDDisplayFormat(MessageFormat):
-    pass
+    def produce(self, item, writer):
+        pass
+
+    def scan(self, reader):
+        pass
 
 
 class LogMessageFormat(MessageFormat):
-    pass
+    def produce(self, item, writer):
+        pass
+
+    def scan(self, reader):
+        pass
 
 
 class BaseDef(object):
@@ -151,19 +96,19 @@ class RequestDef(BaseDef):
 
 
 class ResponseDef(BaseDef):
-    pass;
+    pass
 
 
-def request_def(char, name, format, responses):
+def request_def(char, name, format_type, responses):
     return make_dynamic(locals(), RequestDef())
 
 
-def response_def(char, name, format):
+def response_def(char, name, format_type):
     return make_dynamic(locals(), ResponseDef())
 
 
-def make_dynamic(dict, target):
-    for x, y in dict.items():
+def make_dynamic(d, target):
+    for x, y in d.items():
         setattr(target, x, y)
     return target
 
@@ -174,7 +119,7 @@ def defs_as_dict(*defs):
 
 
 class MessageRequest(Request):
-    def __init__(self, defn:RequestDef, value=None):
+    def __init__(self, defn: RequestDef, value=None):
         self.defn = defn
         self.value = value
 
@@ -244,30 +189,30 @@ class BrewpiProtocolV023(BaseAsyncProtocolHandler):
     def __init__(self, conduit):
         super().__init__(conduit)
 
-    def lcdDisplay(self) -> FutureResponse:
+    def lcd_display(self) -> FutureResponse:
         return self.send_request('L')
 
-    def soundAlarm(self) -> FutureValue:
+    def sound_alarm(self) -> FutureValue:
         return self.send_request('A')
 
-    def silenceAlarm(self) -> FutureValue:
+    def silence_alarm(self) -> FutureValue:
         return self.send_request('a')
 
-    def requestTemperatures(self) -> FutureValue:
+    def request_temperatures(self) -> FutureValue:
         return self.send_request('t')
 
-    def update_values_json(self, dict) -> FutureValue:
-        return self.send_request('j', dict)
+    def update_values_json(self, values) -> FutureValue:
+        return self.send_request('j', values)
 
-    def send_request(self, requestType, value=None):
-        if type(requestType) is type(""):
-            requestType = bytes(requestType, 'ascii')
-        request_defn = self.requests.get(requestType)
+    def send_request(self, request_type, value=None):
+        request_type = tobytes(request_type)
+        request_defn = self.requests.get(request_type)
         if request_defn is None:
-            raise ValueError("unknown command %s" % requestType)
+            raise ValueError("unknown command %s" % request_type)
         r = MessageRequest(request_defn, value)
         future = self.async_request(r)
-        if request_defn.responses is None:  # for commands that have no response, set the result value as none immediately
+        if request_defn.responses is None:
+            # for commands that have no response, set the result value as none immediately
             self._set_future_response(future, None)
         return future
 
@@ -282,7 +227,3 @@ class BrewpiProtocolV023(BaseAsyncProtocolHandler):
         r = MessageResponse(defn)
         r.from_stream(reader)
         return r
-
-
-
-

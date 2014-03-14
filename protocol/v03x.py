@@ -1,32 +1,43 @@
-from abc import abstractmethod
-from io import IOBase, BufferedReader
-import io
+from abc import abstractmethod, ABCMeta
+from io import IOBase, BytesIO, BufferedIOBase
 from conduit.base import Conduit, DefaultConduit
 from protocol.async import BaseAsyncProtocolHandler, FutureResponse, Request, Response, ResponseSupport
+from protocol.version import VersionParser
 
 
-def encodeId(idChain) -> bytearray:
+def brewpi_v03x_protocol_sniffer(line, conduit):
+    result = None
+    line = line.strip()
+    if line.startswith("[") and line.endswith("]"):
+        info = VersionParser("{" + line[1:-1] + "}")
+        if info.major == 0 and info.minor == 3:
+            if info.revision == 0:
+                result = BrewpiProtocolV030(*build_chunked_hexencoded_conduit(conduit))
+    return result
+
+
+def encode_id(idchain) -> bytearray:
     """
     Encodes a sequence of integers to the on-wire binary values (before hex encoding.)
 
-    >>> list(encodeId([1]))
+    >>> list(encode_id([1]))
     [1]
 
-    >>> list(encodeId([1,2,3]))
+    >>> list(encode_id([1,2,3]))
     [129, 130, 3]
 
-    >>> encodeId([])
+    >>> encode_id([])
     bytearray(b'')
 
     :return:converts a byte array representing an id chain to the comms format.
     :rtype:
     """
-    l = len(idChain)
+    l = len(idchain)
     result = bytearray(l)
     for x in range(0, l - 1):
-        result[x] = idChain[x] | 0x80
-    if (l > 0):
-        result[l - 1] = idChain[l - 1]
+        result[x] = idchain[x] | 0x80
+    if l > 0:
+        result[l - 1] = idchain[l - 1]
     return result
 
 
@@ -34,10 +45,10 @@ class ByteArrayRequest(Request):
     """ represents a request as an array or bytes. The byte array defines the key for the reuqest, since responses
         always repeat the request data verbatim. """
 
-    def __init__(self, data:bytes):
+    def __init__(self, data):
         self.data = data
 
-    def to_stream(self, file: IOBase):
+    def to_stream(self, file):
         file.write(self.data)
 
     @property
@@ -121,10 +132,12 @@ class HexToBinaryInputStream(IOBase):
             return -1
         return self._decode_next_byte()
 
-    def peek(self, count=0):
+    # noinspection PyUnusedLocal
+    def peek(self, *args, **kwargs):
         return bytes([self._decode_next_byte()]) if self.has_next() else bytes()
 
-    def read(self, count=-1):
+    # noinspection PyUnusedLocal
+    def read(self, *args, **kwargs):
         result = self.peek(1)
         self._consume_byte()
         return result
@@ -154,8 +167,8 @@ class HexToBinaryInputStream(IOBase):
 class BinaryToHexOutputStream(IOBase):
     """ A binary stream that writes data as two hex-encoded digits."""
 
-    def __init__(self, stream, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, stream):
+        super().__init__()
         self.stream = stream
 
     def write_annotation(self, annotation):
@@ -182,11 +195,6 @@ class BinaryToHexOutputStream(IOBase):
         self._write_byte(ord('\n'))
         self.stream.flush()
 
-    def detach(self):
-        result = self.stream
-        self.stream = None
-        return result
-
     def writable(self, *args, **kwargs):
         return True
 
@@ -202,7 +210,9 @@ class ChunkedHexTextInputStream(IOBase):
 
     def __init__(self, stream, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.data = None
         self.stream = stream
+        self.comment_level = 0
         self.next_chunk()
 
     def read(self, count=-1):
@@ -250,7 +260,7 @@ class ChunkedHexTextInputStream(IOBase):
 
 class CaptureBufferedReader:
     def __init__(self, stream):
-        self.buffer = io.BytesIO()
+        self.buffer = BytesIO()
         self.stream = stream
 
     def read(self, count=-1):
@@ -268,10 +278,6 @@ class CaptureBufferedReader:
         pass
 
 
-def _buffer(result):
-    pass
-
-
 class Commands:
     no_cmd = 0
     read_value = 1
@@ -287,10 +293,12 @@ class Commands:
     reset = 11
 
 
-class CommandDecoder:
-    def decode_command(self, stream:io.BufferedIOBase):
+class CommandDecoder(metaclass=ABCMeta):
+
+    def decode_command(self, stream: BufferedIOBase):
         buf = CaptureBufferedReader(stream)
-        cmd_id = self._read_byte(buf)  # todo - could validate this command ID just to be sure.
+        # get command id - this has already been peeked to determine which CommandEncoder instnace to create
+        self._read_byte(buf)  # todo - could validate this command ID just to be sure.
         self._parse(buf)
         return buf.as_bytes()
 
@@ -311,10 +319,10 @@ class CommandDecoder:
         """ decodes variable length data from the stream. The first byte is the number of bytes in the data block,
             followed by N bytes that make up the data block.
         """
-        len = self._read_byte(stream)
-        buf = bytearray(len)
+        size = self._read_byte(stream)
+        buf = bytearray(size)
         idx = 0
-        while idx < len:
+        while idx < size:
             buf[idx] = self._read_byte(stream)
             idx += 1
         return buf
@@ -342,12 +350,12 @@ class CommandDecoder:
         ctor_params = self._read_vardata(buf)  # the object constructor data block
         return id_chain, ctor_params
 
-
     @abstractmethod
     def decode_response(self, stream):
         pass
 
-    def _peek_next_byte(self, stream):
+    @staticmethod
+    def _peek_next_byte(stream):
         b = stream.peek(1)
         return b[0]
 
@@ -355,7 +363,7 @@ class CommandDecoder:
 class ReadValueCommandDecoder(CommandDecoder):
     def _parse(self, buf):
         # read the id of the objec to read
-        id_chain = self._read_id_chain(buf)
+        self._read_id_chain(buf)
 
     def decode_response(self, stream):
         """ The read command response is a single variable length buffer. """
@@ -373,7 +381,7 @@ class WriteValueCommandDecoder(CommandDecoder):
 
 class CreateObjectCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        self._parse_object_defn(buf)
+        self._read_object_defn(buf)
 
     def decode_response(self, stream):
         """ The create object command response is a status code. """
@@ -382,7 +390,7 @@ class CreateObjectCommandDecoder(CommandDecoder):
 
 class DeleteObjectCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        id_chain = self._read_id_chain(buf)  # the location of the object to delete
+        self._read_id_chain(buf)  # the location of the object to delete
 
     def decode_response(self, stream):
         """ The delete object command response is a status code. """
@@ -407,7 +415,7 @@ class ListObjectsCommandDecoder(CommandDecoder):
 
 class NextFreeSlotCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        container = self._parse_id_chain(buf)  # the container to find the next free slot
+        self._read_id_chain(buf)  # the container to find the next free slot
 
     def decode_response(self, stream):
         """ The next free slot command response is a byte indicating the next free slot. """
@@ -425,7 +433,7 @@ class CreateProfileCommandDecoder(CommandDecoder):
 
 class DeleteProfileCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        profile_id = self._read_byte(buf)
+        self._read_byte(buf)  # profile_id
 
     def decode_response(self, stream):
         """ Result is a status code. """
@@ -443,10 +451,9 @@ class CompactStorageCommandDecoder(CommandDecoder):
 
 class LogValuesCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        flag = self._read_byte(buf)
-        id = None
+        flag = self._read_byte(buf)  # flag to indicate if an id is needed
         if flag:
-            id = self._read_id_chain(buf)
+            self._read_id_chain(buf)  # the id
 
     def decode_response(self, stream):
         """ Returns the new profile id or negative on error. """
@@ -461,21 +468,23 @@ def build_chunked_hexencoded_conduit(conduit):
     """ Builds a binary conduit that converts the binary data to ascii-hex digits.
         Input/Output are chunked via newlines. """
     chunker = ChunkedHexTextInputStream(conduit.input)
-    input = HexToBinaryInputStream(chunker)
-    output = BinaryToHexOutputStream(conduit.output)
+    hex_in = HexToBinaryInputStream(chunker)
+    hex_out = BinaryToHexOutputStream(conduit.output)
 
     def next_chunk_input():
         chunker.next_chunk()
 
     def next_chunk_output():
-        output.newline()
+        hex_out.newline()
 
-    return DefaultConduit(input, output), next_chunk_input, next_chunk_output
+    return DefaultConduit(hex_in, hex_out), next_chunk_input, next_chunk_output
+
 
 def nop():
     pass
 
-class BrewpiV2Protocol(BaseAsyncProtocolHandler):
+
+class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     """ Implements the v2 hex-encoded binary protocol. """
 
     decoders = {
@@ -491,7 +500,8 @@ class BrewpiV2Protocol(BaseAsyncProtocolHandler):
         Commands.log_values: LogValuesCommandDecoder
     }
 
-    def __init__(self, conduit: Conduit, next_chunk_input:callable=nop, next_chunk_output:callable=nop):
+    def __init__(self, conduit: Conduit,
+                 next_chunk_input=nop, next_chunk_output=nop):
         """ The conduit is assumed to read/write binary data. This class doesn't concern itself with the
             low-level encoding, such as hex-coded bytes. """
         super().__init__(conduit)
@@ -500,30 +510,30 @@ class BrewpiV2Protocol(BaseAsyncProtocolHandler):
         self.next_chunk_input = next_chunk_input
         self.next_chunk_output = next_chunk_output
 
-    def read_value(self, id) -> FutureResponse:
+    def read_value(self, id_chain) -> FutureResponse:
         """ requests the value of the given object id is read. """
-        return self._send_command(Commands.read_value, encodeId(id))
+        return self._send_command(Commands.read_value, encode_id(id_chain))
 
-    def write_value(self, id, buf) -> FutureResponse:
-        return self._send_command(Commands.write_value, encodeId(id), len(buf), buf)
+    def write_value(self, id_chain, buf) -> FutureResponse:
+        return self._send_command(Commands.write_value, encode_id(id_chain), len(buf), buf)
 
-    def create_object(self, id, object_type, data) -> FutureResponse:
-        return self._send_command(Commands.create_object, encodeId(id), object_type, len(data), data)
+    def create_object(self, id_chain, object_type, data) -> FutureResponse:
+        return self._send_command(Commands.create_object, encode_id(id_chain), object_type, len(data), data)
 
-    def delete_object(self, id) -> FutureResponse:
-        return self._send_command(Commands.delete_object, encodeId(id))
+    def delete_object(self, id_chain) -> FutureResponse:
+        return self._send_command(Commands.delete_object, encode_id(id_chain))
 
-    def list_objects(self, id) -> FutureResponse:
-        return self._send_command(Commands.list_objects, encodeId(id))
+    def list_objects(self, id_chain) -> FutureResponse:
+        return self._send_command(Commands.list_objects, encode_id(id_chain))
 
-    def next_slot(self, id) -> FutureResponse:
-        return self._send_command(Commands.next_free_slot, encodeId(id))
+    def next_slot(self, id_chain) -> FutureResponse:
+        return self._send_command(Commands.next_free_slot, encode_id(id_chain))
 
     @staticmethod
     def build_bytearray(*args):
         """
         constructs a byte array from position arguments.
-        >>> BrewpiV2Protocol.build_bytearray(90, b"\x42\x43", 95)
+        >>> BrewpiProtocolV030.build_bytearray(90, b"\x42\x43", 95)
         bytearray(b'ZBC_')
         """
         b = bytearray()
@@ -549,15 +559,14 @@ class BrewpiV2Protocol(BaseAsyncProtocolHandler):
         """ notification that a request has been sent. move the output onto the next chunk. """
         self.next_chunk_output()
 
-
     def _decode_response(self) -> Response:
         """ reads the next response from the conduit. """
         self.next_chunk_input()  # move onto next chunk after newline
         stream = self.input
-        next = stream.peek(1)
-        if next and next[0]:  # <0 means no data available yet
+        next_byte = stream.peek(1)
+        if next_byte and next_byte[0]:  # peek command id
             try:
-                decoder = self._create_response_decoder(next[0])
+                decoder = self._create_response_decoder(next_byte[0])
                 command_block = decoder.decode_command(stream)
                 value = decoder.decode_response(stream)
                 return ResponseSupport(command_block, value)
@@ -567,6 +576,5 @@ class BrewpiV2Protocol(BaseAsyncProtocolHandler):
 
     @staticmethod
     def _create_response_decoder(cmd_id):
-        decoder_type = BrewpiV2Protocol.decoders.get(cmd_id)
+        decoder_type = BrewpiProtocolV030.decoders.get(cmd_id)
         return decoder_type()
-

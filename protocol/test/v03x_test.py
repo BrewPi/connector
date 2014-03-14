@@ -1,10 +1,13 @@
 from collections import deque
 import io
-from hamcrest import assert_that, is_, equal_to, raises, calling
-from conduit.base import DefaultConduit
-from protocol.v2.handler import HexToBinaryInputStream, ChunkedHexTextInputStream, BinaryToHexOutputStream, BrewpiV2Protocol, \
-    build_chunked_hexencoded_conduit
 from io import BufferedReader, BufferedWriter, BytesIO
+
+from hamcrest import assert_that, is_, equal_to, raises, calling
+
+from conduit.base import DefaultConduit
+from protocol.v03x import HexToBinaryInputStream, ChunkedHexTextInputStream, BinaryToHexOutputStream, BrewpiProtocolV030, \
+    build_chunked_hexencoded_conduit
+
 
 __author__ = 'mat'
 
@@ -22,15 +25,6 @@ class DequeStream(io.BufferedIOBase):
 class DequeReader(DequeStream):
     def readable(self):
         return True
-
-    def peek(self, count=0):
-        self._checkClosed()
-        if not count :
-            return bytes()
-        sz = min(count, len(self.q))
-        b = bytearray(sz)
-        for idx in range(0, sz):
-            b[idx] = self.q[idx]
 
     def read(self, count=-1):
         self._checkClosed()
@@ -55,7 +49,6 @@ class CircularBuffer():
         self.q = deque()
         self.reader = BufferedReader(DequeReader(self.q))
         self.writer = BufferedWriter(DequeWriter(self.q))
-
 
     def close(self):
         self.reader.close()
@@ -98,14 +91,14 @@ def collect_stream(stream):
     return bytes(collect)
 
 
-class TextFilterInputStreamTestCase(unittest.TestCase):
+class ChunkedHexTextInputStreamTestCase(unittest.TestCase):
     def test_zero_length_read_returns_empty_array(self):
         base = BufferedReader(io.BytesIO(b"20 00 [[12] comment] AF cd "))
         text = ChunkedHexTextInputStream(base)
         assert_that(text.peek(1), is_(equal_to(b'2')))
         assert_that(text.read(0), is_(equal_to(bytes())))
 
-    def test(self):
+    def test_example1(self):
         assert_that(self.stream_read(b"20 00 [[12] comment] AF cd "), equal_to(b"2000AFcd"))
 
     def test_ignores_comments(self):
@@ -127,6 +120,13 @@ class TextFilterInputStreamTestCase(unittest.TestCase):
         s = ChunkedHexTextInputStream(None)
         assert_that(s.writable(), is_(False))
         assert_that(s.readable(), is_(True))
+
+    def test_read_or_peek_on_empty_stream_returns_empty(self):
+        s = ChunkedHexTextInputStream(BufferedReader(io.BytesIO(b'a')))
+        assert_that(s.peek(1), is_(equal_to(b'a')))
+        assert_that(s.read(20), is_(equal_to(b'a')))
+        assert_that(s.peek(1), is_(equal_to(b'')))
+        assert_that(s.read(1), is_(equal_to(b'')))
 
     def stream_read(self, content):
         base = BufferedReader(io.BytesIO(content))
@@ -234,7 +234,7 @@ class TextHexStreamTestCase(unittest.TestCase):
 class BrewpiV2ProtocolSendRequestTestCase(unittest.TestCase):
     def setUp(self):
         self.conduit = DefaultConduit(BytesIO(), BytesIO())
-        self.sut = BrewpiV2Protocol(self.conduit, lambda: None)
+        self.sut = BrewpiProtocolV030(self.conduit, lambda: None)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
@@ -277,7 +277,7 @@ class BrewpiV2ProtocolDecodeResponseTestCase(unittest.TestCase):
         self.input_buffer = CircularBuffer()
         self.output_buffer = CircularBuffer()
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
-        self.sut = BrewpiV2Protocol(self.conduit, lambda: None)
+        self.sut = BrewpiProtocolV030(self.conduit)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
@@ -317,7 +317,11 @@ class BrewpiV2ProtocolHexEncodingTestCase(unittest.TestCase):
         # this represents the far end of the pipe - input/output bytes sent as hex encoded binary
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
         text = build_chunked_hexencoded_conduit(self.conduit)
-        self.sut = BrewpiV2Protocol(*text)
+        self.sut = BrewpiProtocolV030(*text)
+
+    def tearDown(self):
+        self.input_buffer.close()
+        self.output_buffer.close()
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])

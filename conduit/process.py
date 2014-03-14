@@ -10,6 +10,7 @@ class ProcessConduit(DefaultConduit):
     def __init__(self, *args):
         """
         args: the process image name and any additional arguments required by the process.
+        raises OSError and ValueError
         """
         super().__init__()
         self.process = None

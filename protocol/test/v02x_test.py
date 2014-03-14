@@ -1,14 +1,23 @@
 from collections import OrderedDict
 from io import BytesIO
-from hamcrest import assert_that, equal_to, is_
 from io import BufferedRWPair
+
+from hamcrest import assert_that, equal_to, is_
+
 from conduit.base import DefaultConduit
-from protocol.v1.handler import BrewpiProtocolV023
+from protocol.v02x import BrewpiProtocolV023, VersionParser
+
 
 __author__ = 'mat'
 
 import unittest
 
+
+__author__ = 'mat'
+
+
+
+# todo - use the CircularBuffer class that I wrote after this
 class BufferHandle(BufferedRWPair):
     def __init__(self):
         self.buffer = bytearray()
@@ -21,18 +30,19 @@ class BufferHandle(BufferedRWPair):
         self.reader = BytesIO(self.writer.getvalue())
         super().__init__(self.reader, self.writer)
 
+
 def argument_capture_callback(l):
     def callback(arg):
         l.append(arg)
+
     return callback
 
+
 class BrewpiProtocolV023UnitTest(unittest.TestCase):
-
-
     def setUp(self):
         self.send = BufferHandle()
         self.receive = BufferHandle()
-        self.conduit = DefaultConduit(self.receive, self.send)
+        self.conduit = DefaultConduit(self.receive.reader, self.send.reader)
         self.protocol = BrewpiProtocolV023(self.conduit)
 
     def test_read_write_buffer(self):
@@ -44,7 +54,7 @@ class BrewpiProtocolV023UnitTest(unittest.TestCase):
 
     def test_update_values_json_request(self):
         # set the values
-        future = self.protocol.update_values_json(OrderedDict([ ("a", 1), ("b", 2)]))
+        future = self.protocol.update_values_json(OrderedDict([("a", 1), ("b", 2)]))
         # verify stream data was written
         self.assert_request(b'j{"a": 1, "b": 2}\n')
         assert_that(future.response, is_(None), "set values has no response")
@@ -67,6 +77,7 @@ class BrewpiProtocolV023UnitTest(unittest.TestCase):
         self.conduit.output.flush()
         line = self.conduit.output.writer.getvalue()
         assert_that(line, equal_to(expected))
+
 
 if __name__ == '__main__':
     unittest.main()

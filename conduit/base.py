@@ -14,28 +14,28 @@ class Conduit:
     def input(self) -> IOBase:
         """ fetches the I/O stream that provides input.
             Callers can use the usual readXXX() methods. """
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def output(self) -> IOBase:
         """ fetches the I/O stream that provides output.
             Callers can use the usual writeXXX() methods. """
-        pass
+        raise NotImplementedError
 
     @property
     @abstractmethod
     def open(self) -> bool:
         """ determiens if this conduit is open. When open, the streams provided by
             input and output can be read from/written to."""
-        pass
+        raise NotImplementedError
 
     @abstractmethod
     def close(self):
         """
         Closes both the input and output streams.
         """
-        pass
+        raise NotImplementedError
 
 
 class ConduitDecorator(Conduit):
@@ -58,11 +58,11 @@ class ConduitDecorator(Conduit):
 class DefaultConduit(Conduit):
     """ provides the conduit streams from specific read/write file-like types (which may be the same value) """
 
-    def __init__(self, read: IOBase=None, write: IOBase=None):
+    def __init__(self, read: BufferedIOBase=None, write: BufferedIOBase=None):
         self._read = read
         self._write = write if write is not None else read
 
-    def set_streams(self, read: IOBase, write: IOBase=None):
+    def set_streams(self, read: BufferedIOBase, write: BufferedIOBase=None):
         self._read = read
         self._write = write if write is not None else read
 

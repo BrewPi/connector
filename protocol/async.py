@@ -130,6 +130,7 @@ class BaseAsyncProtocolHandler:
     response. The returned FutureResponse can be used by the caller to check if the response has arrived or wait
     for the response.
     """
+
     def __init__(self, conduit: Conduit, matcher=None):
         self._conduit = conduit
         self._requests = defaultdict(list)
@@ -170,8 +171,8 @@ class BaseAsyncProtocolHandler:
             for key in request.response_keys:
                 l = self._requests[key]
                 l.append(future)
-        # todo - handle cancelled/timedout etc.. or otherwise unclaimed FutureResponse objects in
-        # would really like weak referencing here.
+                # todo - handle cancelled/timedout etc.. or otherwise unclaimed FutureResponse objects in
+                # would really like weak referencing here.
 
     def _unregister_future(self, future: FutureResponse):
         request = future.request
@@ -180,7 +181,7 @@ class BaseAsyncProtocolHandler:
                 self._requests.get(key).remove(future)
 
     @abstractmethod
-    def _decode_response(self)->Response:
+    def _decode_response(self) -> Response:
         """ reads the next response from the conduit. """
         raise NotImplementedError
 
@@ -189,7 +190,7 @@ class BaseAsyncProtocolHandler:
         response = self._decode_response()
         return self.process_response(response)
 
-    def process_response(self, response: Response)->Response:
+    def process_response(self, response: Response) -> Response:
         if response is not None:
             futures = self._matching_futures(response)
             if futures:
