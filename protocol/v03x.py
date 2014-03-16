@@ -297,7 +297,11 @@ class Commands:
     log_values = 10
     reset = 11
     next_free_slot_root = 12
-    list_profiles = 14
+    list_profiles = 14,
+    read_system_value = 15,
+    write_system_value = 16,
+    list_system_values = 17
+
 
 class CommandDecoder(metaclass=ABCMeta):
     def decode_command(self, cmd_id: int, stream: BufferedIOBase):
@@ -464,18 +468,20 @@ class DeleteProfileCommandDecoder(CommandDecoder):
 
 class ActivateProfileCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        self._read_byte(buf)    # profile id
+        self._read_byte(buf)  # profile id
 
     def decode_response(self, stream):
         """ Returns the active profile id or negative on error. """
         return self._read_status_code(stream)
 
+
 class ListProfilesCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        pass    # no additional command arguments
+        pass  # no additional command arguments
 
     def decode_response(self, stream):
         return self._read_remainder(stream)
+
 
 class LogValuesCommandDecoder(CommandDecoder):
     def _parse(self, buf):
@@ -486,6 +492,19 @@ class LogValuesCommandDecoder(CommandDecoder):
     def decode_response(self, stream):
         """ Returns the new profile id or negative on error. """
         return self._read_remainder(stream)
+
+
+class ReadSystemValueCommandDecoder(ReadValueCommandDecoder):
+    pass
+
+
+class WriteSystemValueCommandDecoder(WriteValueCommandDecoder):
+    pass
+
+
+class ListSystemValuesCommandDecoder(ListProfileCommandDecoder):
+    pass
+
 
 def build_chunked_hexencoded_conduit(conduit):
     """ Builds a binary conduit that converts the binary data to ascii-hex digits.
@@ -522,6 +541,9 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         Commands.activate_profile: ActivateProfileCommandDecoder,
         Commands.log_values: LogValuesCommandDecoder,
         Commands.next_free_slot_root: NextFreeSlotRootCommandDecoder,
+        Commands.read_system_value: ReadSystemValueCommandDecoder,
+        Commands.write_system_value: WriteSystemValueCommandDecoder,
+        Commands.list_system_values: ListSystemValuesCommandDecoder
     }
 
     def __init__(self, conduit: Conduit,
@@ -547,8 +569,8 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     def delete_object(self, id_chain) -> FutureResponse:
         return self._send_command(Commands.delete_object, encode_id(id_chain))
 
-    def list_objects(self, id_chain) -> FutureResponse:
-        return self._send_command(Commands.list_objects, encode_id(id_chain))
+    def list_profile(self, profile_id) -> FutureResponse:
+        return self._send_command(Commands.list_profile, profile_id)
 
     def next_slot(self, id_chain) -> FutureResponse:
         return self._send_command(Commands.next_free_slot if len(id_chain) else Commands.next_free_slot_root,
@@ -565,6 +587,16 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
 
     def list_profiles(self) -> FutureResponse:
         return self._send_command(Commands.list_profiles)
+
+    def read_system_value(self, id_chain, expected_len):
+        return self._send_command(Commands.read_system_value, encode_id(id_chain), expected_len)
+
+    def write_system_value(self, id_chain, buf) -> FutureResponse:
+        return self._send_command(Commands.write_system_value, encode_id(id_chain), len(buf), buf)
+
+    def list_system_values(self) -> FutureResponse:
+        return self._send_command(Commands.list_system_values)
+
 
     @staticmethod
     def build_bytearray(*args):

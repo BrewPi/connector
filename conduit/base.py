@@ -109,11 +109,11 @@ class BufferedConduit(ConduitStreamDecorator):
 class DefaultConduit(Conduit):
     """ provides the conduit streams from specific read/write file-like types (which may be the same value) """
 
-    def __init__(self, read: BufferedIOBase=None, write: BufferedIOBase=None):
+    def __init__(self, read: IOBase=None, write: IOBase=None):
         self._read = read
         self._write = write if write is not None else read
 
-    def set_streams(self, read: BufferedIOBase, write: BufferedIOBase=None):
+    def set_streams(self, read: IOBase, write: IOBase=None):
         self._read = read
         self._write = write if write is not None else read
 

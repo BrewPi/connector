@@ -253,7 +253,7 @@ class BrewpiV2ProtocolSendRequestTestCase(unittest.TestCase):
         self.assert_request_sent(4, 0x81, 2)
 
     def test_send_list_objects_command_bytes(self):
-        future = self.sut.list_objects([1, 4])
+        future = self.sut.list_profile([1, 4])
         self.assert_request_sent(5, 0x81, 4)
 
     def test_send_next_slot_object_command_bytes(self):
