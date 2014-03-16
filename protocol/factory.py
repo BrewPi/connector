@@ -1,12 +1,16 @@
 from conduit.base import Conduit
-from connector.base import ConnectorError, UnknownProtocolError
 from protocol.v02x import brewpi_v02x_protocol_sniffer
 from protocol.v03x import brewpi_v03x_protocol_sniffer
 
 __author__ = 'mat'
 
 
-all_sniffers = [ brewpi_v03x_protocol_sniffer, brewpi_v02x_protocol_sniffer ]
+class UnknownProtocolError(Exception):
+    pass
+
+
+all_sniffers = [brewpi_v03x_protocol_sniffer, brewpi_v02x_protocol_sniffer]
+
 
 def determine_protocol(conduit: Conduit):
     # at present all protocols are line based

@@ -2,12 +2,17 @@
 The original and ng brewpi protocols are asynchronous. They are represented abstractly as two message queues.
 """
 from abc import abstractmethod
-from collections import defaultdict
+from collections import defaultdict, Callable
 
 from concurrent.futures import Future
 from io import IOBase
+from threading import Thread, Condition, Event
 import types
 from conduit.base import Conduit
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class FutureValue(Future):
@@ -19,10 +24,9 @@ class FutureValue(Future):
         super().__init__()
         self.value_extractor = lambda x: x
 
-    @property
-    def value(self):
+    def value(self, timeout=None):
         """ allows the provider to set the result value but provide a different (derived) value to callers. """
-        return self.value_extractor(self.result())
+        return self.value_extractor(self.result(timeout))
 
 
 class Request:
@@ -120,6 +124,36 @@ class ResponseSupport(Response):
         return self._request_key
 
 
+class AsyncHandler:
+    """ continually runs a given function. exceptions are logged and posted to a given handler """
+
+    def __init__(self, fn: Callable, args=()):
+        self.exception_handler = lambda x: logger.error(x)
+        self.fn = fn
+        self.args = args
+        self.stop_event = None
+        self.background_thread = None
+
+    def start(self):
+        if self.background_thread is None:
+            t = Thread(target = self._loop, args = self.args)
+            self.stop_event = Event()
+            self.background_thread = t
+            t.start()
+
+    def _loop(self):
+        stop = self.stop_event
+        while not stop.is_set():
+            try:
+                self.fn(*self.args)
+            except Exception as e:
+                self.exception_handler(e)
+        self.background_thread = None
+
+    def stop(self):
+        self.stop_event.set()
+
+
 class BaseAsyncProtocolHandler:
     """
     Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not dndefined
@@ -135,8 +169,19 @@ class BaseAsyncProtocolHandler:
         self._conduit = conduit
         self._requests = defaultdict(list)
         self._unmatched = []
+        self.async_thread = None
         if matcher:
             self._matching_futures = types.MethodType(matcher, self, BaseAsyncProtocolHandler)
+
+    def start_background_thread(self):
+        if self.async_thread is None:
+            self.async_thread = AsyncHandler(self.read_response)
+            self.async_thread.start()
+
+    def stop_background_thread(self):
+        if self.async_thread is not None:
+            self.async_thread.stop()
+            self.async_thread = None
 
     def add_unmatched_response_handler(self, fn):
         """

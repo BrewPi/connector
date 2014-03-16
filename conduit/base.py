@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from io import IOBase, RawIOBase, BufferedIOBase
+import io
 
 __author__ = 'mat'
 
@@ -40,19 +41,69 @@ class Conduit:
 
 class ConduitDecorator(Conduit):
     def close(self):
+        self.decorate.close()
+
+    @property
+    def input(self) -> IOBase:
+        return self.decorate.input
+
+    @property
+    def output(self) -> IOBase:
+        return self.decorate.output
+
+    @property
+    def open(self) -> bool:
+        return self.decorate.open
+
+    def __init__(self, decorate: Conduit):
+        self.decorate = decorate
+
+
+def close_stream(stream):
+    if stream is not None:
+        stream.close()
+
+
+class ConduitStreamDecorator(ConduitDecorator):
+    """ provides a simple way to wrap the input and output streams from a conduit."""
+
+    def __init__(self, decorate: Conduit):
+        super().__init__(decorate)
+        self._input = None
+        self._output = None
+
+    @property
+    def input(self) -> IOBase:
+        if self._input is None:
+            self._input = self._wrap_input(self.decorate.input)
+        return self._input
+
+    @property
+    def output(self) -> IOBase:
+        if self._output is None:
+            self._output = self._wrap_output(self.decorate.output)
+        return self._output
+
+    def close(self):
+        self._output.flush()
         super().close()
 
-    def input(self) -> IOBase:
-        return super().input
+    @abstractmethod
+    def _wrap_input(self, input):
+        return input
 
-    def output(self) -> IOBase:
-        return super().output
+    @abstractmethod
+    def _wrap_output(self, output):
+        return output
 
-    def open(self) -> bool:
-        return super().open
 
-    def __init__(self, decorate:Conduit):
-        self.decorate = decorate
+class BufferedConduit(ConduitStreamDecorator):
+    """ buffers the underlying streams from the given conduit."""
+    def _wrap_output(self, output):
+        return io.BufferedWriter(output)
+
+    def _wrap_input(self, input):
+        return io.BufferedReader(input)
 
 
 class DefaultConduit(Conduit):

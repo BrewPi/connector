@@ -99,10 +99,10 @@ class ConnectorMonitor:
     def __init__(self, connectors:list):
         self.connectors = connectors
 
-    def check(self):
+    def scan(self):
         for connector in self.connectors:
             if connector.available and not connector.connected:
-                notify_listeners()
+                connector.connect()
 
 
 class AbstractConnector(Connector):
@@ -127,6 +127,8 @@ class AbstractConnector(Connector):
         try:
             self._conduit = self._connect()
             self._protocol = determine_protocol(self._conduit)
+        except UnknownProtocolError as e:
+            raise ConnectorError() from e
         finally:
             if not self._protocol:
                 self.disconnect()
@@ -136,7 +138,8 @@ class AbstractConnector(Connector):
             return
         self._disconnect()
         if self._protocol:
-            self._protocol.shutdown()
+            if hasattr(self._protocol, 'shutdown'):
+                self._protocol.shutdown()
             self._protocol = None
         if self._conduit:
             self._conduit.close()

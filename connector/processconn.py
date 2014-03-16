@@ -1,5 +1,5 @@
 import os
-from conduit.base import Conduit
+from conduit.base import Conduit, BufferedConduit
 from conduit.process import ProcessConduit
 from connector.base import AbstractConnector, ConnectorError
 
@@ -11,7 +11,7 @@ def is_executable(file):
 
 
 class ProcessConnector(AbstractConnector):
-    def __init__(self, image, args):
+    def __init__(self, image, args=None):
         super().__init__()
         self.image = image
         self.args = args
@@ -24,7 +24,9 @@ class ProcessConnector(AbstractConnector):
 
     def _connect(self) -> Conduit:
         try:
-            return ProcessConduit(self.image, *self.args)
+            args = self.args if self.args is not None else []
+            p = ProcessConduit(self.image, *args)
+            return BufferedConduit(p)
         except (OSError, ValueError) as e:
             raise ConnectorError from e
 

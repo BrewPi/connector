@@ -169,6 +169,8 @@ class BinaryToHexOutputStream(IOBase):
 
     def __init__(self, stream):
         super().__init__()
+        if not stream.writable():
+            raise ValueError()
         self.stream = stream
 
     def write_annotation(self, annotation):
@@ -263,6 +265,9 @@ class CaptureBufferedReader:
         self.buffer = BytesIO()
         self.stream = stream
 
+    def push(self, data):
+        self.buffer.write(data)
+
     def read(self, count=-1):
         b = self.stream.read(count)
         self.buffer.write(b)
@@ -284,21 +289,20 @@ class Commands:
     write_value = 2
     create_object = 3
     delete_object = 4
-    list_objects = 5
+    list_profile = 5
     next_free_slot = 6
     create_profile = 7
     delete_profile = 8
-    compact_profile = 9
+    activate_profile = 9
     log_values = 10
     reset = 11
-
+    next_free_slot_root = 12
+    list_profiles = 14
 
 class CommandDecoder(metaclass=ABCMeta):
-
-    def decode_command(self, stream: BufferedIOBase):
+    def decode_command(self, cmd_id: int, stream: BufferedIOBase):
         buf = CaptureBufferedReader(stream)
-        # get command id - this has already been peeked to determine which CommandEncoder instnace to create
-        self._read_byte(buf)  # todo - could validate this command ID just to be sure.
+        buf.push(bytes([cmd_id]))
         self._parse(buf)
         return buf.as_bytes()
 
@@ -350,6 +354,15 @@ class CommandDecoder(metaclass=ABCMeta):
         ctor_params = self._read_vardata(buf)  # the object constructor data block
         return id_chain, ctor_params
 
+    def _read_remainder(self, stream):
+        """ reads the remaining bytes in the stream into a list """
+        values = []
+        while stream.peek_next_byte() >= 0:  # has more data
+            value = self._read_value(stream)
+            values.append(value)
+        return values
+
+
     @abstractmethod
     def decode_response(self, stream):
         pass
@@ -397,7 +410,7 @@ class DeleteObjectCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class ListObjectsCommandDecoder(CommandDecoder):
+class ListProfileCommandDecoder(CommandDecoder):
     def _parse(self, buf):
         pass  # no additional command data in the original request
 
@@ -422,6 +435,15 @@ class NextFreeSlotCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
+class NextFreeSlotRootCommandDecoder(CommandDecoder):
+    def _parse(self, buf):  # additional command arguments to read
+        pass
+
+    def decode_response(self, stream):
+        """ The next free slot command response is a byte indicating the next free slot. """
+        return self._read_status_code(stream)
+
+
 class CreateProfileCommandDecoder(CommandDecoder):
     def _parse(self, buf):
         pass  # no additional command parameters
@@ -440,14 +462,20 @@ class DeleteProfileCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class CompactStorageCommandDecoder(CommandDecoder):
+class ActivateProfileCommandDecoder(CommandDecoder):
     def _parse(self, buf):
-        pass  # no additional command parameters
+        self._read_byte(buf)    # profile id
 
     def decode_response(self, stream):
-        """ Returns the new profile id or negative on error. """
+        """ Returns the active profile id or negative on error. """
         return self._read_status_code(stream)
 
+class ListProfilesCommandDecoder(CommandDecoder):
+    def _parse(self, buf):
+        pass    # no additional command arguments
+
+    def decode_response(self, stream):
+        return self._read_remainder(stream)
 
 class LogValuesCommandDecoder(CommandDecoder):
     def _parse(self, buf):
@@ -457,12 +485,7 @@ class LogValuesCommandDecoder(CommandDecoder):
 
     def decode_response(self, stream):
         """ Returns the new profile id or negative on error. """
-        values = []
-        while stream.peek_next_byte() >= 0:  # has more data
-            value = self._read_value(stream)
-            values.append(value)
-        return values
-
+        return self._read_remainder(stream)
 
 def build_chunked_hexencoded_conduit(conduit):
     """ Builds a binary conduit that converts the binary data to ascii-hex digits.
@@ -492,12 +515,13 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         Commands.write_value: WriteValueCommandDecoder,
         Commands.create_object: CreateObjectCommandDecoder,
         Commands.delete_object: DeleteObjectCommandDecoder,
-        Commands.list_objects: ListObjectsCommandDecoder,
+        Commands.list_profile: ListProfileCommandDecoder,
         Commands.next_free_slot: NextFreeSlotCommandDecoder,
         Commands.create_profile: CreateProfileCommandDecoder,
         Commands.delete_profile: DeleteProfileCommandDecoder,
-        Commands.compact_profile: CompactStorageCommandDecoder,
-        Commands.log_values: LogValuesCommandDecoder
+        Commands.activate_profile: ActivateProfileCommandDecoder,
+        Commands.log_values: LogValuesCommandDecoder,
+        Commands.next_free_slot_root: NextFreeSlotRootCommandDecoder,
     }
 
     def __init__(self, conduit: Conduit,
@@ -510,9 +534,9 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         self.next_chunk_input = next_chunk_input
         self.next_chunk_output = next_chunk_output
 
-    def read_value(self, id_chain) -> FutureResponse:
+    def read_value(self, id_chain, expected_len) -> FutureResponse:
         """ requests the value of the given object id is read. """
-        return self._send_command(Commands.read_value, encode_id(id_chain))
+        return self._send_command(Commands.read_value, encode_id(id_chain), expected_len)
 
     def write_value(self, id_chain, buf) -> FutureResponse:
         return self._send_command(Commands.write_value, encode_id(id_chain), len(buf), buf)
@@ -527,7 +551,20 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         return self._send_command(Commands.list_objects, encode_id(id_chain))
 
     def next_slot(self, id_chain) -> FutureResponse:
-        return self._send_command(Commands.next_free_slot, encode_id(id_chain))
+        return self._send_command(Commands.next_free_slot if len(id_chain) else Commands.next_free_slot_root,
+                                  encode_id(id_chain))
+
+    def create_profile(self) -> FutureResponse:
+        return self._send_command(Commands.create_profile)
+
+    def delete_profile(self, profile_id) -> FutureResponse:
+        return self._send_command(Commands.delete_profile, profile_id)
+
+    def activate_profile(self, profile_id) -> FutureResponse:
+        return self._send_command(Commands.activate_profile, profile_id)
+
+    def list_profiles(self) -> FutureResponse:
+        return self._send_command(Commands.list_profiles)
 
     @staticmethod
     def build_bytearray(*args):
@@ -560,16 +597,18 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         self.next_chunk_output()
 
     def _decode_response(self) -> Response:
-        """ reads the next response from the conduit. """
+        """ reads the next response from the conduit. Blocks until data is available. """
         self.next_chunk_input()  # move onto next chunk after newline
         stream = self.input
-        next_byte = stream.peek(1)
-        if next_byte and next_byte[0]:  # peek command id
+        next_byte = stream.read(1)
+        if next_byte:
+            cmd_id = next_byte[0]
             try:
-                decoder = self._create_response_decoder(next_byte[0])
-                command_block = decoder.decode_command(stream)
-                value = decoder.decode_response(stream)
-                return ResponseSupport(command_block, value)
+                if cmd_id:  # peek command id
+                    decoder = self._create_response_decoder(cmd_id)
+                    command_block = decoder.decode_command(cmd_id, stream)
+                    value = decoder.decode_response(stream)
+                    return ResponseSupport(command_block, value)
             finally:
                 while not stream.closed and stream.read():  # spool off rest of block if caller didn't read it
                     pass
