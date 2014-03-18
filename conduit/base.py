@@ -133,3 +133,32 @@ class DefaultConduit(Conduit):
     @property
     def output(self) -> IOBase:
         return self._write
+
+
+class RedirectConduit(ConduitStreamDecorator):
+    """ wraps the original straems with streams that write their data to another chosen stream.
+        This can be used for exampel to write the input and output streams to stdout and stderr respectively """
+
+    def __init__(self, decorate, redirectStream):
+        super().__init__(decorate)
+        self.redirect = redirectStream
+
+    def _wrap_output(self, output):
+        out = output.write
+        redirect = self.redirect    # the stream to write to
+        def pipe_output(data):
+            data = bytes(data)
+            out(data)
+            redirect.write(data.decode())
+        output.write = pipe_output
+        return output
+
+    def _wrap_input(self, input):
+        read = input.read
+        redirect = self.redirect
+        def pipe_input():
+            result = read()
+            redirect.write(bytes(result).decode())
+            return result
+        input.read = pipe_input
+        return input

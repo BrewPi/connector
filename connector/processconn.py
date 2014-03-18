@@ -15,6 +15,7 @@ class ProcessConnector(AbstractConnector):
         super().__init__()
         self.image = image
         self.args = args
+        self.build_conduit = lambda x: x
 
     def _connected(self):
         return self._conduit.open
@@ -26,7 +27,7 @@ class ProcessConnector(AbstractConnector):
         try:
             args = self.args if self.args is not None else []
             p = ProcessConduit(self.image, *args)
-            return BufferedConduit(p)
+            return BufferedConduit(self.build_conduit(p))
         except (OSError, ValueError) as e:
             raise ConnectorError from e
 

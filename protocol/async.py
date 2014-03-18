@@ -26,7 +26,10 @@ class FutureValue(Future):
 
     def value(self, timeout=None):
         """ allows the provider to set the result value but provide a different (derived) value to callers. """
-        return self.value_extractor(self.result(timeout))
+        value = self.value_extractor(self.result(timeout))
+        if isinstance(value, BaseException):
+            raise value
+        return value
 
 
 class Request:
@@ -128,7 +131,7 @@ class AsyncHandler:
     """ continually runs a given function. exceptions are logged and posted to a given handler """
 
     def __init__(self, fn: Callable, args=()):
-        self.exception_handler = lambda x: logger.error(x)
+        self.exception_handler = lambda x: logger.exception(x)
         self.fn = fn
         self.args = args
         self.stop_event = None
@@ -149,6 +152,7 @@ class AsyncHandler:
             except Exception as e:
                 self.exception_handler(e)
         self.background_thread = None
+        logger.info("background thread exiting")
 
     def stop(self):
         self.stop_event.set()

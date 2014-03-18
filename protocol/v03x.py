@@ -5,6 +5,34 @@ from protocol.async import BaseAsyncProtocolHandler, FutureResponse, Request, Re
 from protocol.version import VersionParser
 
 
+def unsigned_byte(val):
+    """ converts an unsigned byte to a corresponding 2's complement signed value
+    >>> unsigned_byte(0)
+    0
+    >>> unsigned_byte(-1)
+    255
+    >>> unsgined_byte(127)
+    127
+    >>> unsigned_byte(-128)
+    128
+    """
+    return val if val >= 0 else val + 256
+
+
+def signed_byte(b):
+    """ converts an unsigned byte to a corresponding 2's complement signed value
+    >>> signed_byte(0)
+    0
+    >>> signed_byte(255)
+    -1
+    >>> signed_byte(127)
+    127
+    >>> signed_byte(128)
+    -128
+    """
+    return b if b < 128 else b - 256
+
+
 def brewpi_v03x_protocol_sniffer(line, conduit):
     result = None
     line = line.strip()
@@ -276,6 +304,9 @@ class CaptureBufferedReader:
     def peek(self, count=0):
         return self.stream.peek(count)
 
+    def peek_next_byte(self):
+        return self.stream.peek_next_byte()
+
     def as_bytes(self):
         return bytes(self.buffer.getbuffer())
 
@@ -294,17 +325,29 @@ class Commands:
     create_profile = 7
     delete_profile = 8
     activate_profile = 9
-    log_values = 10
-    reset = 11
-    next_free_slot_root = 12
-    list_profiles = 14,
-    read_system_value = 15,
-    write_system_value = 16,
-    list_system_values = 17
+    log_values = 0xA
+    reset = 0xB
+    next_free_slot_root = 0xC
+    list_profiles = 0xE
+    read_system_value = 0xF
+    write_system_value = 0x10
+    list_system_values = 0x11
 
 
-class CommandDecoder(metaclass=ABCMeta):
-    def decode_command(self, cmd_id: int, stream: BufferedIOBase):
+# A note to maintainers: These ResponseDecoder objects have to be written carefully - the
+# _parse and decode_response methods have to match exactly the command request and command response
+# If _parse doesn't consume the right amount of bytes, the response will not be matched up with the
+# corresponding request, and the caller will never get a response (and will eventually timeout on the
+# FutureRequest.)
+
+
+class ResponseDecoder(metaclass=ABCMeta):
+    """  parses the response data into the data block corresponding to the original request
+         and decodes the data block that is the additional response data
+    """
+
+    def decode_request(self, cmd_id: int, stream: BufferedIOBase):
+        """ read the portion of the response that corresponds to the original request. """
         buf = CaptureBufferedReader(stream)
         buf.push(bytes([cmd_id]))
         self._parse(buf)
@@ -316,7 +359,7 @@ class CommandDecoder(metaclass=ABCMeta):
 
     def _read_id_chain(self, buf):
         result = bytearray()
-        while self._peek_next_byte(buf) >= 0:
+        while buf.peek_next_byte() >= 0:
             b = self._read_byte(buf)
             result.append(b & 0x7F)
             if b < 0x80:
@@ -333,11 +376,17 @@ class CommandDecoder(metaclass=ABCMeta):
         while idx < size:
             buf[idx] = self._read_byte(stream)
             idx += 1
-        return buf
+        return bytes(buf)
+
+    @staticmethod
+    def _read_signed_byte(stream):
+        b = ResponseDecoder._read_byte(stream)
+        return signed_byte(b)
 
     @staticmethod
     def _read_byte(stream):
-        """ reads the next byte from the stream. If there is no more data, an exception is thrown. """
+        """ reads the next byte from the stream. If there is no more data, an exception is thrown.
+            bytes are returned as unsigned. """
         b = stream.read(1)
         if not b:
             raise ValueError
@@ -345,7 +394,7 @@ class CommandDecoder(metaclass=ABCMeta):
 
     def _read_status_code(self, stream):
         """ parses and returns a status-code """
-        return self._read_byte(stream)
+        return self._read_signed_byte(stream)
 
     def _read_object_defn(self, buf):
         id_chain = self._read_id_chain(buf)  # the location to create the object
@@ -353,7 +402,7 @@ class CommandDecoder(metaclass=ABCMeta):
         ctor_params = self._read_vardata(buf)  # the object constructor data block
         return id_chain, obj_type, ctor_params
 
-    def _read_value(self, buf):
+    def _read_object_value(self, buf):
         id_chain = self._read_id_chain(buf)  # the location to create the object
         ctor_params = self._read_vardata(buf)  # the object constructor data block
         return id_chain, ctor_params
@@ -362,41 +411,37 @@ class CommandDecoder(metaclass=ABCMeta):
         """ reads the remaining bytes in the stream into a list """
         values = []
         while stream.peek_next_byte() >= 0:  # has more data
-            value = self._read_value(stream)
+            value = self._read_byte(stream)
             values.append(value)
         return values
-
 
     @abstractmethod
     def decode_response(self, stream):
         pass
 
-    @staticmethod
-    def _peek_next_byte(stream):
-        b = stream.peek(1)
-        return b[0]
 
-
-class ReadValueCommandDecoder(CommandDecoder):
+class ReadValueResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         # read the id of the objec to read
         self._read_id_chain(buf)
+        self._read_byte(buf)  # length of data expected
 
     def decode_response(self, stream):
         """ The read command response is a single variable length buffer. """
         return self._read_vardata(stream)
 
 
-class WriteValueCommandDecoder(CommandDecoder):
+class WriteValueResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
-        self._read_value(buf)
+        self._read_id_chain(buf)  # id chain
+        len = self._read_vardata(buf)  # length and body of data to write
 
     def decode_response(self, stream):
         """ The write command response is a single variable length buffer indicating the value written. """
         return self._read_vardata(stream)
 
 
-class CreateObjectCommandDecoder(CommandDecoder):
+class CreateObjectResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         self._read_object_defn(buf)
 
@@ -405,7 +450,7 @@ class CreateObjectCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class DeleteObjectCommandDecoder(CommandDecoder):
+class DeleteObjectResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         self._read_id_chain(buf)  # the location of the object to delete
 
@@ -414,7 +459,7 @@ class DeleteObjectCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class ListProfileCommandDecoder(CommandDecoder):
+class ListProfileResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         pass  # no additional command data in the original request
 
@@ -430,7 +475,7 @@ class ListProfileCommandDecoder(CommandDecoder):
         return values
 
 
-class NextFreeSlotCommandDecoder(CommandDecoder):
+class NextFreeSlotResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         self._read_id_chain(buf)  # the container to find the next free slot
 
@@ -439,7 +484,7 @@ class NextFreeSlotCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class NextFreeSlotRootCommandDecoder(CommandDecoder):
+class NextFreeSlotRootResponseDecoder(ResponseDecoder):
     def _parse(self, buf):  # additional command arguments to read
         pass
 
@@ -448,7 +493,7 @@ class NextFreeSlotRootCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class CreateProfileCommandDecoder(CommandDecoder):
+class CreateProfileResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         pass  # no additional command parameters
 
@@ -457,7 +502,7 @@ class CreateProfileCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class DeleteProfileCommandDecoder(CommandDecoder):
+class DeleteProfileResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         self._read_byte(buf)  # profile_id
 
@@ -466,7 +511,7 @@ class DeleteProfileCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class ActivateProfileCommandDecoder(CommandDecoder):
+class ActivateProfileResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         self._read_byte(buf)  # profile id
 
@@ -475,15 +520,26 @@ class ActivateProfileCommandDecoder(CommandDecoder):
         return self._read_status_code(stream)
 
 
-class ListProfilesCommandDecoder(CommandDecoder):
+class ListProfilesResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         pass  # no additional command arguments
 
     def decode_response(self, stream):
-        return self._read_remainder(stream)
+        r = self._read_remainder(stream)  # read active profile followed by available profiles
+        r[0] = signed_byte(r[0])  # active profile is signed
+        return r
 
 
-class LogValuesCommandDecoder(CommandDecoder):
+class ResetResponseDecoder(ResponseDecoder):
+    def _parse(self, buf):  # additional command arguments to read
+        self._read_byte(buf)  # flags
+
+    def decode_response(self, stream):
+        """ Returns a status code. """
+        return self._read_status_code(stream)
+
+
+class LogValuesResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
         flag = self._read_byte(buf)  # flag to indicate if an id is needed
         if flag:
@@ -494,15 +550,15 @@ class LogValuesCommandDecoder(CommandDecoder):
         return self._read_remainder(stream)
 
 
-class ReadSystemValueCommandDecoder(ReadValueCommandDecoder):
+class ReadSystemValueCommandDecoder(ReadValueResponseDecoder):
     pass
 
 
-class WriteSystemValueCommandDecoder(WriteValueCommandDecoder):
+class WriteSystemValueCommandDecoder(WriteValueResponseDecoder):
     pass
 
 
-class ListSystemValuesCommandDecoder(ListProfileCommandDecoder):
+class ListSystemValuesCommandDecoder(ListProfileResponseDecoder):
     pass
 
 
@@ -526,21 +582,24 @@ def nop():
     pass
 
 
+
 class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     """ Implements the v2 hex-encoded binary protocol. """
 
     decoders = {
-        Commands.read_value: ReadValueCommandDecoder,
-        Commands.write_value: WriteValueCommandDecoder,
-        Commands.create_object: CreateObjectCommandDecoder,
-        Commands.delete_object: DeleteObjectCommandDecoder,
-        Commands.list_profile: ListProfileCommandDecoder,
-        Commands.next_free_slot: NextFreeSlotCommandDecoder,
-        Commands.create_profile: CreateProfileCommandDecoder,
-        Commands.delete_profile: DeleteProfileCommandDecoder,
-        Commands.activate_profile: ActivateProfileCommandDecoder,
-        Commands.log_values: LogValuesCommandDecoder,
-        Commands.next_free_slot_root: NextFreeSlotRootCommandDecoder,
+        Commands.read_value: ReadValueResponseDecoder,
+        Commands.write_value: WriteValueResponseDecoder,
+        Commands.create_object: CreateObjectResponseDecoder,
+        Commands.delete_object: DeleteObjectResponseDecoder,
+        Commands.list_profile: ListProfileResponseDecoder,
+        Commands.next_free_slot: NextFreeSlotResponseDecoder,
+        Commands.create_profile: CreateProfileResponseDecoder,
+        Commands.delete_profile: DeleteProfileResponseDecoder,
+        Commands.activate_profile: ActivateProfileResponseDecoder,
+        Commands.reset: ResetResponseDecoder,
+        Commands.log_values: LogValuesResponseDecoder,
+        Commands.next_free_slot_root: NextFreeSlotRootResponseDecoder,
+        Commands.list_profiles: ListProfilesResponseDecoder,
         Commands.read_system_value: ReadSystemValueCommandDecoder,
         Commands.write_system_value: WriteSystemValueCommandDecoder,
         Commands.list_system_values: ListSystemValuesCommandDecoder
@@ -576,6 +635,9 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         return self._send_command(Commands.next_free_slot if len(id_chain) else Commands.next_free_slot_root,
                                   encode_id(id_chain))
 
+    def reset(self, flags) -> FutureResponse:
+        return self._send_command(Commands.reset, flags)
+
     def create_profile(self) -> FutureResponse:
         return self._send_command(Commands.create_profile)
 
@@ -597,7 +659,6 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     def list_system_values(self) -> FutureResponse:
         return self._send_command(Commands.list_system_values)
 
-
     @staticmethod
     def build_bytearray(*args):
         """
@@ -609,9 +670,9 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         for arg in args:
             try:
                 for val in arg:
-                    b.append(val)
+                    b.append(unsigned_byte(val))
             except TypeError:
-                b.append(arg)
+                b.append(unsigned_byte(arg))
         return b
 
     def _send_command(self, *args):
@@ -638,8 +699,13 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
             try:
                 if cmd_id:  # peek command id
                     decoder = self._create_response_decoder(cmd_id)
-                    command_block = decoder.decode_command(cmd_id, stream)
-                    value = decoder.decode_response(stream)
+                    command_block = decoder.decode_request(cmd_id, stream)
+                    try:
+                        value = decoder.decode_response(stream)
+                        if value is None:
+                            raise ValueError("request decoder did not return a value")
+                    except Exception as e:
+                        value = e
                     return ResponseSupport(command_block, value)
             finally:
                 while not stream.closed and stream.read():  # spool off rest of block if caller didn't read it
@@ -648,4 +714,6 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     @staticmethod
     def _create_response_decoder(cmd_id):
         decoder_type = BrewpiProtocolV030.decoders.get(cmd_id)
+        if not decoder_type:
+            raise ValueError("no decoder for cmd_id %d" % cmd_id)
         return decoder_type()
