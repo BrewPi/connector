@@ -57,15 +57,11 @@ class ContainedObject(ControllerObject):
     """
 
     def __init__(self, controller: BaseController, container: ContainerTraits, slot: int):
+        # todo - push the profile up to the root container and store controller in that.
         """
-            :param controller:
-            :type controller:
+            :param controller:  The controller containing this object.
             :param container:   The container hosting this object. Will be None if this is the root container.
-            :type container:
-            :param slot:
-            :type slot:
-            :return:
-            :rtype:
+            :param slot:        The slot in the container this object is stored at
             """
         super().__init__(controller)
         self.container = container
@@ -79,6 +75,13 @@ class ContainedObject(ControllerObject):
         """
         return self.container.id_chain_for(self.slot)
 
+    def delete(self):
+        """ deletes the corresponding object on the controller then detaches this proxy from the controller. """
+        if self.controller:
+            self.controller.delete_object(self)
+            self.container = None
+            self.slot = None
+            self.controller = None
 
 class ContainerTraits:
     @abstractmethod
@@ -93,6 +96,7 @@ class Container(ContainedObject, ContainerTraits):
 
 class RootContainer(ControllerObject, ContainerTraits):
     """ A root container is the top-level container - it is not contained in any container. """
+    # todo - add the profile that this object is contained in
 
     def __init__(self, controller: BaseController):
         super().__init__(controller)
@@ -123,7 +127,12 @@ class Profile(BaseControllerObject):
         self.controller.activate_profile(self)
 
     def deactivate(self):
-        self.controller.deactivate_profile(self)
+        if self.is_active:
+            self.controller.activate_profile(self)
+
+    def delete(self):
+        # todo - all contained objects should refer to the profile they are contained in, and
+        self.controller.delete_profile(self)
 
     @property
     def is_active(self):
@@ -176,7 +185,7 @@ class WritableObject(ContainedObject, ValueDecoder, ValueEncoder, metaclass=ABCM
 
 class LongDecoder(ValueDecoder):
     def decode(self, buf):
-        return ((((buf[0] << 8) + buf[1]) << 8) + buf[2]) << 8 + buf[3]
+        return ((((buf[0] * 256) + buf[1]) * 256) + buf[2]) * 256 + buf[3]
 
     def encoded_len(self):
         return 4
@@ -184,7 +193,7 @@ class LongDecoder(ValueDecoder):
 
 class ShortDecoder(ValueDecoder):
     def decode(self, buf):
-        return int(buf[0]) << 8 + buf[1]
+        return buf[0] * 256 + buf[1]
 
     def encoded_len(self):
         return 2
@@ -254,7 +263,7 @@ class BaseController:
     def initialize(self, id_service):
         id_obj = self.system_id()
         current_id = id_obj.read()
-        if current_id[0] == 0xFF:
+        if int(current_id[0]) == 0xFF:
             current_id = id_service()
         id_obj.write(current_id)
         return current_id
@@ -271,6 +280,9 @@ class BaseController:
 
     def write_value(self, obj: WritableObject, value):
         self._write_value(obj, value, self.connector.protocol.write_value)
+
+    def delete_object(self, obj: ContainedObject):
+        self._handle_error(self.connector.protocol.delete_object, obj.id_chain)
 
     def next_slot(self, container) -> int:
         return self._handle_error(self.connector.protocol.next_slot, container.id_chain)

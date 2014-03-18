@@ -151,12 +151,12 @@ class AsyncHandler:
                 self.fn(*self.args)
             except Exception as e:
                 self.exception_handler(e)
-        self.background_thread = None
         logger.info("background thread exiting")
 
     def stop(self):
         self.stop_event.set()
-
+        self.background_thread.join()
+        self.background_thread = None
 
 class BaseAsyncProtocolHandler:
     """

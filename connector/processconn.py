@@ -21,7 +21,7 @@ class ProcessConnector(AbstractConnector):
         return self._conduit.open
 
     def _disconnect(self):
-        pass  # nothing to do here - base class closes the conduit
+        self._conduit.decorate.wait_for_exit()
 
     def _connect(self) -> Conduit:
         try:

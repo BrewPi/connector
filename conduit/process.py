@@ -29,6 +29,9 @@ class ProcessConduit(DefaultConduit):
         return self.process is not None and \
                self.process.poll() is None
 
+    def wait_for_exit(self):
+        self.process.wait()
+
     def close(self):
         if self.process is not None:
             self.process.terminate()
