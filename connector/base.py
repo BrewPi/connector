@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
-from conduit.base import Conduit
-from protocol.factory import determine_protocol
+from conduit.base import Conduit, BufferedConduit
+from protocol.factory import determine_protocol, UnknownProtocolError
 from support.events import EventHook
 
 __author__ = 'mat'
@@ -18,10 +18,6 @@ class ConnectionNotConnectedError(ConnectorError):
 
 class ConnectionNotAvailableError(ConnectorError):
     """ Indicates the connection is not available. """
-    pass
-
-
-class UnknownProtocolError(ConnectorError):
     pass
 
 
@@ -108,6 +104,7 @@ class ConnectorMonitor:
 class AbstractConnector(Connector):
     def __init__(self):
         self.changed = EventHook()
+        self._base_conduit = None
         self._conduit = None
         self._protocol = None
 
@@ -125,7 +122,8 @@ class AbstractConnector(Connector):
         if not self.available:
             raise ConnectionNotAvailableError
         try:
-            self._conduit = self._connect()
+            self._base_conduit = self._connect()
+            self._conduit = self._base_conduit
             self._protocol = determine_protocol(self._conduit)
         except UnknownProtocolError as e:
             raise ConnectorError() from e

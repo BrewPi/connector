@@ -1,8 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor, Future
 from queue import Queue, Empty
 from abc import abstractmethod
-import unittest
-from ..base import Conduit
+from conduit.base import Conduit
 
 __author__ = 'mat'
 
@@ -11,6 +10,9 @@ class AsyncConnectorTest:
     """
     Provides support for implementing asynchronous tests on connectors.
     """
+    connections = None
+    futures = None
+    executor = None
 
     def setUp(self):
         self.connections = self.createConnections()
@@ -46,7 +48,7 @@ class AsyncConnectorTest:
             else:
                 connector.output.write(lines.encode())
 
-    def assertWriteRead(self, text, connectors:[Conduit]):
+    def assertWriteRead(self, text, connectors):
         for line in text.split('\n'):
             connectors[0].sendQueue.put(line)  # rather than writing directly to the connector, put it in the send queue
             for c in connectors[1:]:
@@ -54,6 +56,6 @@ class AsyncConnectorTest:
                 self.assertEqual(read, str.encode(line))
 
     @abstractmethod
-    def createConnections(self) -> [Conduit]:
-        pass
+    def createConnections(self):
+        raise NotImplementedError
 

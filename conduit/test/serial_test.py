@@ -1,27 +1,23 @@
-from audioop import reverse
-from concurrent.futures import ThreadPoolExecutor, Future
-import os
-from queue import Queue, Empty
-import string
-from conduit.base import Conduit
-from conduit.test.async_test import AsyncConnectorTest
+import sys
 import serial
 import unittest
+from hamcrest import assert_that, equal_to, is_
+from conduit.test.async_test import AsyncConnectorTest
 
-from conduit.serial import serial_connector_factory
+from conduit.serial import serial_connector_factory, detect_port
+from test.config import apply_module
 
 __author__ = 'mat'
 
-# todo - factor out port to environment
-port = os.environ.get('TEST_SERIAL_PORT')
-virtualPortPairStr = os.environ.get('TEST_VIRTUAL_PAIR')      # pair of virtual ports connected as a null modem
-
+port = None
 virtualPortPair = None
-if virtualPortPairStr:
-    virtualPortPair = string.split(virtualPortPairStr, ",")
-
 invalid_port = "ABC___not_found"
+arduino_port_detect = None
 baud = 57600
+
+apply_module(sys.modules[__name__])
+
+
 
 class ConnectorSerialTestCase(unittest.TestCase):
     def __init__(self, methodName='runTest'):
@@ -34,6 +30,13 @@ class ConnectorSerialTestCase(unittest.TestCase):
     def tearDown(self):
         self.connection and self.connection.close()
 
+    def test_detect_port_given(self):
+        assert_that(detect_port("COM2"), is_(equal_to("COM2")))
+
+    @unittest.skipUnless(arduino_port_detect, "arduino_port_detect not defined")
+    def test_detect_port_not_given(self):
+        assert_that(detect_port("auto"), is_(equal_to(arduino_port_detect)))
+
     def test_factory_method_returns_callable(self):
         factory = serial_connector_factory(invalid_port, baud, timeout=1)
         assert callable(factory)
@@ -42,17 +45,19 @@ class ConnectorSerialTestCase(unittest.TestCase):
         factory = serial_connector_factory(invalid_port, baud, timeout=1)
         self.assertRaises(serial.SerialException, factory)
 
-    @unittest.skipIf(not port, "arduino port not defined")
+    @unittest.skipUnless(port, "arduino port not defined")
     def test_read_serial(self):
-        factory = serial_connector_factory(port, baud, timeout=1)
+        p = detect_port(port)
+        factory = serial_connector_factory(p, baud, timeout=1)
         self.connection = factory()
         input = self.connection.input
         line = input.read()
         self.assertIsNotNone(line)
 
-    @unittest.skipIf(not port, "arduino port not defined")
+    @unittest.skipUnless(port, "arduino port not defined")
     def test_write_serial(self):
-        factory = serial_connector_factory(port, baud, timeout=1)
+        p = detect_port(port)
+        factory = serial_connector_factory(p, baud, timeout=1)
         self.connection = factory()
         self.connection.output.write("abc".encode())
 

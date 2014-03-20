@@ -2,7 +2,7 @@ import io
 from hamcrest import assert_that, calling, raises, is_, instance_of
 
 from conduit.base import DefaultConduit
-from connector.base import ConnectorError, UnknownProtocolError
+from connector.base import UnknownProtocolError
 from protocol.factory import determine_protocol
 from protocol.v02x import BrewpiProtocolV023
 from protocol.v03x import HexToBinaryInputStream, BrewpiProtocolV030

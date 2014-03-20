@@ -1,7 +1,11 @@
 from abc import abstractmethod, ABCMeta
+from time import sleep
 from hamcrest import assert_that, equal_to, is_, greater_than, less_than, calling, raises, is_not, all_of, any_of
+import sys
 from connector import controller_id
-from connector.v03x import BaseController, FailedOperationError, Profile, ContainedObject, ReadableObject
+from connector.v03x import BaseController, FailedOperationError, Profile, ContainedObject, ReadableObject, \
+    DynamicContainer, RootContainer, Container
+from test.config import apply_module
 
 __author__ = 'mat'
 
@@ -9,56 +13,69 @@ import unittest
 
 no_stress_tests = True
 
+apply_module(sys.modules[__name__])
+
 def profile_id_range():
     return range(0,4)
 
+
+class TestController(BaseController):
+    pass
+
+
+class ControllerObjectTestCase(unittest.TestCase):
+    def setUp(self):
+        self.connector = None
+        self.controller = TestController(self.connector)
+
+
+class RootContainerTestCase(ControllerObjectTestCase):
+    def test_id_chain_for_root_is_empty(self):
+        r = RootContainer(self.controller)
+        assert_that(r.id_chain, is_(equal_to(tuple())))
+
+    def test_id_chain_for_slot(self):
+        r = RootContainer(self.controller)
+        assert_that(r.id_chain_for(10), is_(equal_to(tuple([10]))))
+
+
+class ContainerObjectTestCase(ControllerObjectTestCase):
+
+    def test_id_chain_for_nested_container(self):
+        r = RootContainer(self.controller)
+        c1 = Container(self.controller, r, 5)
+        assert_that(c1.id_chain, is_(equal_to((5,))))
+
+    def test_id_chain_for_nested_slot(self):
+        r = RootContainer(self.controller)
+        c1 = Container(self.controller, r, 5)
+        assert_that(c1.id_chain_for(10), is_(equal_to((5,10))))
+
+
 class BaseControllerTestHelper(metaclass=ABCMeta):
+    connector = None
+    controller = None
+
     def initialize_controller(self):
+        self.connector = self.create_connector()
         self.controller = self.create_controller()
         self.create_connection()
 
     def setUp(self):
         """ subclass creates the controller. Ensures the controller has no profiles defined."""
-        self.initialize_controller()
-        self.test_has_assigned_id()
-        self.controller.full_erase()
-        act = self.c.active_and_available_profiles()
-        self.assert_active_available(-1, []) # verify that profiles have been cleared
-        assert_that(act[0], is_(None), "no profile should be loaded by default")
-        assert_that(len(act[1]), is_(0), "no profiles created by default")
-
-    def id_service(self):
-        return controller_id.simple_id_service
-
-    def create_connection(self):
-        self.c.connector.connect()
-        self.protocol = self.controller.connector.protocol    # so we can access the protocol when the conduit is disconnected
-        self.protocol.start_background_thread()
-
-    def discard_connection(self):
-        self.c.connector.disconnect()
-        self.protocol.stop_background_thread()
-
-    def tearDown(self):
-        self.controller.reset(True)
-        self.discard_connection()
-
-    def reset(self, erase_eeprom=False):
-        """ allows for a controller reset mid-test """
-        self.controller.reset(erase_eeprom)
-        self.discard_connection()
-        self.create_connection()
-
-    def setup_profile(self) -> Profile:
-        """ create a profile and activate it. Verifies that it is active. """
-        profile = self.c.create_profile()
-        profile.activate()
-        assert_that(profile.is_active, is_(True))
-        return profile
-
-    @property
-    def c(self)->BaseController:    # some type hinting for the IDE
-        return self.controller
+        self.initialize_id = True
+        success = False
+        try:
+            self.initialize_controller()
+            self.test_has_assigned_id()
+            self.controller.full_erase()
+            act = self.c.active_and_available_profiles()
+            assert_that(act[0], is_(None), "no profile should be loaded by default")
+            assert_that(len(act[1]), is_(0), "no profiles created by default")
+            success = True
+        finally:
+            if not success and self.connector:
+                self.connector.disconnect()
 
     def test_has_assigned_id(self):
         id = self.c.system_id().read()
@@ -129,11 +146,35 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
                 break
         return count
 
-    @unittest.skip
+    def test_deactivating_profile_frees_space(self):
+        """ fills up eeprom space by successvely creating and deleting objects until no more objects can be created.
+            creates a new profile, and verifies that additional objects can be added to that.
+        """
+        p = self.setup_profile()
+        error = None
+        for x in range(0,10000): # limit the number of attempts
+            try:
+                obj = self.c.create_current_ticks(self.c.root_container)
+            except FailedOperationError as e:
+                error = e
+                break
+            obj.delete()        # if this throws an exception the test fails
+
+        assert_that(error, is_not(None), "expected an exception")
+        p.deactivate()
+        p.activate()
+
+        # this should succeed now, since the store has been compacted
+        self.c.create_current_ticks(self.c.root_container)
+
     def test_delete_profile_preserves_other_profiles(self):
         """ create several profiles, and fetch their contained objects (as a large data block for efficiency)
             delete the profiles from first to last, and verify the contents in other profiles is preserved.
         """
+
+
+
+
 
     @unittest.skip
     def test_last_profile_is_open_after_unload(self):
@@ -194,18 +235,6 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         self.reset()
         self.assert_active_available(-1, [])
 
-    def test_deleted_slots_are_reused(self):
-        """ adds objects to the open profile, and then causes a reset.
-            on startup, verifies that the profile is still open, by creating more objects. """
-        p = self.setup_profile()
-        o0 = self.create_object()
-        o1 = self.create_object()
-        o2 = self.create_object()
-        slot = o1.slot
-        o1.delete()
-        o4 = self.create_object()
-        assert_that(o4.slot, is_(equal_to(slot)), "expected new object to use same slot as deleted object")
-
     def test_reset_preserves_inactive_profile(self):
         self.c.activate_profile(None)
         self.assert_active_available(-1, []) # verify that profiles have been cleared
@@ -220,13 +249,113 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         self.assert_active_available(p.profile_id, [p.profile_id]) # tests that the connection comes back up
 
 
+    def test_deleted_slots_are_reused(self):
+        """ adds objects to the open profile, and then causes a reset.
+            on startup, verifies that the profile is still open, by creating more objects. """
+        p = self.setup_profile()
+        o0 = self.create_object()
+        o1 = self.create_object()
+        o2 = self.create_object()
+        slot = o1.slot
+        o1.delete()
+        o4 = self.create_object()
+        assert_that(o4.slot, is_(equal_to(slot)), "expected new object to use same slot as deleted object")
+
+    def test_dynamic_container_stress(self):
+        self.setup_profile()
+        container = self.c.create_dynamic_container(self.c.root_container)
+        containers = []
+        for x in range(0,127):
+            try:
+                containers += [self.c.create_dynamic_container(container)]
+            except Exception as e:
+                raise AssertionError("unable to create container %d" % x) from e
+
+        assert_that(calling(self.c.create_dynamic_container).with_args(container), raises(FailedOperationError),
+                    "expected container to be full")
+        containers[20].delete()
+        assert_that(calling(self.c.create_dynamic_container).with_args(container), is_not(raises(FailedOperationError)),
+                    "expected container to have one free slot")
+        assert_that(calling(self.c.create_dynamic_container).with_args(container), raises(FailedOperationError),
+                    "expected container to be full")
+
+    def test_dynamic_container_create_destroy(self):
+        self.setup_profile()
+        container = self.c.create_dynamic_container(self.c.root_container)
+        container2 = self.c.create_dynamic_container(container)
+        container3 = self.c.create_dynamic_container(container2)
+
+        container3.delete()
+        container2.delete()
+        container.delete()
+
+    def test_dynamic_container_allocate_slot_dynamically(self):
+        """ the dynamic container initially has a size of zero, and should be expanded by calling next_slot,
+            before adding objects. This test verifies that attempting to create an object without calling next_slot
+            fails.
+        """
+        self.setup_profile()
+        container = self.c.create_dynamic_container(self.c.root_container)
+        ticks = self.c.create_current_ticks(container, 20)
+        ticks.read()
+
+    def test_create_object_with_inactive_profile_fails(self):
+        p = self.setup_profile()
+        p.deactivate()
+        assert_that(calling(self.c.create_dynamic_container).with_args(self.c.root_container), raises(FailedOperationError),
+                    "expected container creation to fail with no active profile")
+
+    def test_create_object_in_closed_profile_fails(self):
+        p = self.setup_profile()
+        p2 = self.setup_profile()
+        p.activate()
+        assert_that(calling(self.c.create_dynamic_container).with_args(self.c.root_container), raises(FailedOperationError),
+                    "expected container creation to fail with closed profile")
+        p2.activate()
+        assert_that(calling(self.c.create_dynamic_container).with_args(self.c.root_container), raises(FailedOperationError),
+                    "expected creation to fail in closed profile")
+        self.reset()
+        assert_that(calling(self.c.create_dynamic_container).with_args(self.c.root_container), raises(FailedOperationError),
+                    "expected creation to fail in closed profile")
+
+    def test_create_current_ticks(self):
+        """ when a profile is created and
+            when a CurrentTicks() object is created
+                then the returned value is > 0
+            and when waiting 10 ms then the new value is at least 10 ms larger
+        """
+        self.setup_profile()
+        host = self.controller.root_container
+        current_ticks = self.controller.create_current_ticks(host)
+        ticks = current_ticks.read()
+        assert_that(ticks, is_(greater_than(0)), "expected ticks > 0")
+        sleep(0.1)
+        ticks2 = current_ticks.read()
+        assert_that(ticks2 - ticks, is_(greater_than(90)))
+
+    def test_object_available_after_reset(self):
+        self.setup_profile()
+        host = self.controller.root_container
+        current_ticks = self.controller.create_current_ticks(host)
+        ticks = current_ticks.read()    # don't care what the value is just that we can read it
+        self.reset()
+        # technically the current_ticks proxy should be re-evaluated after reset, and read from the controller (list objects)
+        # but here, we rely on the id_chain still being valid
+        ticks = current_ticks.read()    # don't care what the value is just that we can read it
+
+
     def create_object(self)->ReadableObject:
         """ create some arbitrary object. """
-        return self.c.create_object_current_ticks(self.c.root_container)
+        return self.c.create_current_ticks(self.c.root_container)
 
     @abstractmethod
     def create_controller(self):
         raise NotImplementedError
+
+    @abstractmethod
+    def create_connector(self):
+        raise NotImplementedError
+
 
     def assert_active_available(self, expected_active:int, expected_available:list):
         aa = self.c.active_and_available_profiles()
@@ -235,6 +364,43 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         assert_that(active, is_(equal_to(expected_active)), "active profile")
         assert_that(tuple(available), is_(equal_to(tuple(expected_available))), "available profiles")
 
+    def id_service(self):
+        return controller_id.simple_id_service
+
+    def create_connection(self):
+        # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
+        self.connector.connect()
+        self.protocol = self.controller.connector.protocol    # so we can access the protocol when the conduit is disconnected
+        self.protocol.start_background_thread()
+        if self.initialize_id:
+            self.controller.initialize(self.id_service())
+
+    def discard_connection(self):
+        self.c.connector.disconnect()
+        self.protocol.stop_background_thread()
+
+    def tearDown(self):
+        self.discard_connection()
+
+    def reset(self, erase_eeprom=False):
+        """ allows for a controller reset mid-test """
+        # todo - the controller should determine the appropriate reset required
+        # desktop/leonardo - do a full reset
+        # mega/uno - do not, since serial connection does a reset
+        self.controller.reset(erase_eeprom, False)
+        self.discard_connection()
+        self.create_connection()
+
+    def setup_profile(self) -> Profile:
+        """ create a profile and activate it. Verifies that it is active. """
+        profile = self.c.create_profile()
+        profile.activate()
+        assert_that(profile.is_active, is_(True))
+        return profile
+
+    @property
+    def c(self)->BaseController:    # some type hinting for the IDE
+        return self.controller
 
 
 if __name__ == '__main__':

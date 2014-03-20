@@ -35,6 +35,23 @@ class BaseControllerObject(CommonEqualityMixin):
         self.controller = controller
 
 
+class ObjectReference(BaseControllerObject):
+    """ Describes a reference to an object in the controller.
+        The reference describes the object's location (container/slot)
+        the class of the object and the arguments used to configure it. """
+    def __init__(self, controller, container, slot, obj_class, args):
+        super().__init__(controller)
+        self.container = container
+        self.slot = slot
+        self.obj_class = obj_class
+        self.args = args
+
+    def resolve(self):
+        """ resolves this reference to the actual proxy object used to interact with the controller.
+        todo - deferred until I know we really need this object oriented API. """
+        pass
+
+
 class ControllerObject(BaseControllerObject, metaclass=ABCMeta):
     @property
     @abstractmethod
@@ -49,6 +66,32 @@ class ContainerTraits:
 
 class BaseController:
     pass
+
+
+class InstantiableObject(ControllerObject):
+    type_id = 0
+
+    @classmethod
+    @abstractmethod
+    def decode_definition(cls, data_block: bytes):
+        """ decodes the object's definition data block from the controller to python objects """
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def encode_definition(self, args) -> bytes:
+        """ encodes the construction parameters for the object into a data block """
+        raise NotImplementedError
+
+
+    def delete(self):
+        """ deletes the corresponding object on the controller then detaches this proxy from the controller. """
+        if self.controller:
+            self.controller.delete_object(self)
+            self.container = None
+            self.slot = None
+            self.controller = None
+
 
 
 class ContainedObject(ControllerObject):
@@ -75,13 +118,10 @@ class ContainedObject(ControllerObject):
         """
         return self.container.id_chain_for(self.slot)
 
-    def delete(self):
-        """ deletes the corresponding object on the controller then detaches this proxy from the controller. """
-        if self.controller:
-            self.controller.delete_object(self)
-            self.container = None
-            self.slot = None
-            self.controller = None
+
+class UserObject(InstantiableObject, ContainedObject):
+    pass
+
 
 class ContainerTraits:
     @abstractmethod
@@ -91,7 +131,7 @@ class ContainerTraits:
 
 class Container(ContainedObject, ContainerTraits):
     def id_chain_for(self, slot):
-        return self.container.id_chain + (slot,)
+        return self.id_chain + (slot,)
 
 
 class RootContainer(ControllerObject, ContainerTraits):
@@ -128,7 +168,7 @@ class Profile(BaseControllerObject):
 
     def deactivate(self):
         if self.is_active:
-            self.controller.activate_profile(self)
+            self.controller.activate_profile(None)
 
     def delete(self):
         # todo - all contained objects should refer to the profile they are contained in, and
@@ -141,12 +181,6 @@ class Profile(BaseControllerObject):
     @classmethod
     def id_for(cls, p:Profile):
         return p.profile_id if p else -1
-
-
-
-class ObjectType:
-    """ the type ids for all objects that are instantiable in the controller. """
-    current_ticks = 3
 
 
 class ValueDecoder:
@@ -221,7 +255,7 @@ class ReadWriteBaseObject(ReadableObject, WritableObject):
     pass
 
 
-class ReadWriteObject(ReadWriteBaseObject):
+class ReadWriteUserObject(ReadWriteBaseObject):
     def read(self):
         return self.controller.read_value(self)
 
@@ -244,18 +278,54 @@ class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
         return 1
 
 
-class CurrentTicks(ReadableObject, LongDecoder):
-    type_id = ObjectType.current_ticks
+class EmptyDefinition(ContainedObject):
+    @classmethod
+    def decode_definition(cls, data_block):
+        raise ValueError("object does not require a definition block")
+
+    @classmethod
+    def encode_definition(cls, arg):
+        raise ValueError("object does not require a definition block")
+
+# Now comes the application-specific objects.
+# Todo - it would be nice to separate these out, or make it extensible in python
+# taken steps in that direction.
+
+class CurrentTicks(EmptyDefinition, ReadableObject, UserObject, LongDecoder):
+    type_id = 3
+
+
+class DynamicContainer(EmptyDefinition, UserObject, Container):
+    type_id = 4
+
+
+class BuiltInObjectTypes:
+
+    @classmethod
+    def as_id(cls, obj: ContainedObject):
+        return obj.type_id
+
+    @classmethod
+    def from_id(cls, type_id) -> InstantiableObject:
+        return BuiltInObjectTypes._from_id.get(type_id, None)
+
+    all_types = (CurrentTicks, DynamicContainer)
+    _from_id = dict((x.type_id, x) for x in all_types)
 
 
 class BaseController:
     """ provides the operations common to all controllers.
     """
 
-    def __init__(self, connector):
+    def __init__(self, connector, object_types=BuiltInObjectTypes):
+        """
+        :param connector:       The connector that provides the v0.3.x protocol over a conduit.
+        :param object_types:    The factory describing the object types available in the controller.
+        """
         self._root = RootContainer(self)
         self._sysroot = RootContainer(self)
         self.connector = connector
+        self.object_types = object_types
 
     def system_id(self):
         return SystemID(self, self._sysroot, 0)
@@ -313,11 +383,18 @@ class BaseController:
         active = self.active_and_available_profiles()[0]
         return False if not active else active.profile_id == p.profile_id
 
-    def reset(self, erase_eeprom=False):
+    def list_objects(self, p: Profile):
+        future = self.connector.protocol.list_profile(p.profile_id)
+        data = BaseController.result_from(future)
+        return [self._materialize_object_descriptor(*d) for d in data]
+
+    def reset(self, erase_eeprom=False, hard_reset=True):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
             current_id = self.system_id().read()
             controller_id.return_id(current_id)
-        self._handle_error(self.connector.protocol.reset, 1 if erase_eeprom else 0)
+        self._handle_error(self.connector.protocol.reset,
+                           1 if erase_eeprom else 0 or
+                           2 if hard_reset else 0)
 
     def read_system_value(self, obj: ReadableObject):
         data = self._fetch_data_block(self.connector.protocol.read_system_value, obj.id_chain, obj.encoded_len())
@@ -332,21 +409,30 @@ class BaseController:
         if data != encoded:
             raise FailedOperationError("could not write value")
 
-    def create_object_current_ticks(self, container) -> CurrentTicks:
-        return self._create_object(container, CurrentTicks)
+    def create_object(self, obj_class: InstantiableObject, args=None, container=None, slot=None):
+        container = container or self.root_container
+        slot = slot if slot is not None else self.next_slot(container)
+        data = (args is not None and obj_class.encode_definition(args)) or None
+        if args is not None and obj_class.decode_definition(data)!=args:
+            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s"
+                             % args, data, obj_class.decode_definition(data))
+        self._create_object(container, obj_class, slot, data)
+        return obj_class(self, container, slot)
 
+    def create_current_ticks(self, container=None, slot=None) -> CurrentTicks:
+        return self.create_object(CurrentTicks, None, container, slot)
+
+    def create_dynamic_container(self, container=None, slot=None) -> DynamicContainer:
+        return self.create_object(DynamicContainer, None, container, slot)
 
     @property
     def root_container(self):
         return self._root
 
-    def _create_object(self, container: Container, obj_class, data=None):
-        if not data:
-            data = []
-        slot = self.next_slot(container)
+    def _create_object(self, container: Container, obj_class: InstantiableObject, slot, data: bytes):
+        data = data or []
         id_chain = container.id_chain_for(slot)
         self._handle_error(self.connector.protocol.create_object, id_chain, obj_class.type_id, data)
-        return obj_class(self, container, slot)
 
     @staticmethod
     def _handle_error(fn, *args):
@@ -373,7 +459,30 @@ class BaseController:
     def profile_for(self, profile_id):
         return Profile(self, profile_id) if profile_id >= 0 else None
 
+    def container_for(self, id_chain):
+        c = self.root_container
+        for x in id_chain:
+            c = Container(self, c, x)
+        return c
+
+    def _materialize_object_descriptor(self, obj_type, id, data):
+        """ converts the obj_type (int) to th eobject class, converts the id to a container+slot reference, and
+            decodes the data.
+        """
+        # todo - the object descriptors should be in order so that we can dynamically build the container proxy
+        container = self.container_for(id[:-1])
+        slot = id[-1:]
+        cls = BuiltInObjectTypes.from_id(obj_type)
+        args = cls.decode_definition(data)
+        return ObjectReference(self, container, slot, cls, args)
+
 
 class CrossCompileController(BaseController):
     """ additional options only available on the cross-compile """
+    def __init__(self, connector):
+        super().__init__(connector, BuiltInObjectTypes)
 
+
+class ArduinoController(BaseController):
+    def __init__(self, connector):
+        super().__init__(connector, BuiltInObjectTypes)

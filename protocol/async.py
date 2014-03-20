@@ -15,6 +15,19 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class UnknownProtocolError(Exception):
+    pass
+
+def tobytes(arg):
+    """
+    >>> tobytes("abc")
+    b'abc'
+    """
+    if isinstance(arg, type("")):
+        arg = bytes(arg, 'ascii')
+    return arg
+
+
 class FutureValue(Future):
     """ describes a value that may have not yet been computed. Callers can check if the value has arrived, or chose to
         wait until the value has arrived.
@@ -212,6 +225,7 @@ class BaseAsyncProtocolHandler:
         """ arranges for the request to be streamed. This implementation is synchronous, but subclasses may choose
             to send the request asynchronously. """
         request.to_stream(self._conduit.output)
+        self._conduit.output.flush()
         self._stream_request_sent(request)
 
     def _register_future(self, future: FutureResponse):

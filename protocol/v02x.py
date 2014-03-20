@@ -1,8 +1,7 @@
 from io import BufferedIOBase
 import json
 from abc import abstractmethod
-import string
-from protocol.async import FutureValue, Request, BaseAsyncProtocolHandler, FutureResponse, Response
+from protocol.async import FutureValue, Request, BaseAsyncProtocolHandler, FutureResponse, Response, tobytes
 from protocol.version import VersionParser
 
 __author__ = 'mat'
@@ -88,7 +87,7 @@ class LogMessageFormat(MessageFormat):
 class BaseDef(object):
     char = None
     name = None
-    format = None
+    format_type = None
 
 
 class RequestDef(BaseDef):
@@ -132,7 +131,7 @@ class MessageRequest(Request):
          streams the request character, and optionally any additional data required by the message format and value
         """
         file.write(self.defn.char)
-        mf = self.defn.format
+        mf = self.defn.format_type
         value = self.value
         if mf is not None and value is not None:
             mf.produce(value, file)
@@ -145,8 +144,8 @@ class MessageResponse(Response):
         self._value = None
 
     def from_stream(self, file):
-        if self.defn.format is not None:
-            self._value = self.defn.format.scan(file)
+        if self.defn.format_type is not None:
+            self._value = self.defn.format_type.scan(file)
 
     @property
     def response_key(self):

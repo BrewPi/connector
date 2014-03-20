@@ -1,19 +1,10 @@
 import os
 from serial import Serial, SerialException
-from serial.tools import list_ports
 from conduit.base import Conduit
-from conduit.serial import SerialConduit
-from connector.base import Connector, AbstractConnector, ConnectionNotAvailableError
+from conduit.serial import SerialConduit, serial_ports
+from connector.base import AbstractConnector
 
 __author__ = 'mat'
-
-
-def serial_ports():
-    """
-    Returns a generator for all available serial ports
-    """
-    for port in list_ports.comports():
-        yield port[0]
 
 
 class SerialConnector(AbstractConnector):
@@ -45,9 +36,7 @@ class SerialConnector(AbstractConnector):
 
     def _connect(self)->Conduit:
         self._try_open()
-        conduit = SerialConduit(self._serial)
-        self._protocol = self._establish_protocol()
-        return conduit
+        return SerialConduit(self._serial)
 
     def _disconnect(self):
         self._serial.close()

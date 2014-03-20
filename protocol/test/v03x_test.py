@@ -42,8 +42,9 @@ class DequeWriter(DequeStream):
             self.q.append(x)
         return len(buf)
 
-class CircularBuffer():
-    """ simple implements of a circular buffer. Mainly for single-threaded code in test.
+class RWCacheBuffer():
+    """ simple implementation of a read and writable buffer. For single-threaded code in test.
+        Use the reader and writer attributes to access a reader and writer - the reader reads what has been put by the writer.
     """
     def __init__(self):
         self.q = deque()
@@ -231,14 +232,14 @@ class TextHexStreamTestCase(unittest.TestCase):
         return collect_stream(hexstream)
 
 
-class BrewpiV2ProtocolSendRequestTestCase(unittest.TestCase):
+class BrewpiV030ProtocolSendRequestTestCase(unittest.TestCase):
     def setUp(self):
         self.conduit = DefaultConduit(BytesIO(), BytesIO())
         self.sut = BrewpiProtocolV030(self.conduit, lambda: None)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.assert_request_sent(1, 0x81, 0x82, 3)
+        self.assert_request_sent(1, 0x81, 0x82, 3, 0)
 
     def test_send_write_command_bytes(self):
         future = self.sut.write_value([1, 2, 3], [4, 5])
@@ -252,9 +253,9 @@ class BrewpiV2ProtocolSendRequestTestCase(unittest.TestCase):
         future = self.sut.delete_object([1, 2])
         self.assert_request_sent(4, 0x81, 2)
 
-    def test_send_list_objects_command_bytes(self):
-        future = self.sut.list_profile([1, 4])
-        self.assert_request_sent(5, 0x81, 4)
+    def test_send_list_profile_command_bytes(self):
+        future = self.sut.list_profile(4)
+        self.assert_request_sent(5, 4)
 
     def test_send_next_slot_object_command_bytes(self):
         future = self.sut.next_slot([1, 4])
@@ -268,27 +269,27 @@ class BrewpiV2ProtocolSendRequestTestCase(unittest.TestCase):
 
 def assert_future(future, match):
     assert_that(future.done(), is_(True), "expected future to be complete")
-    assert_that(future.value, match)
+    assert_that(future.value(), match)
 
 
-class BrewpiV2ProtocolDecodeResponseTestCase(unittest.TestCase):
+class BrewpiV030ProtocolDecodeResponseTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.input_buffer = CircularBuffer()
-        self.output_buffer = CircularBuffer()
+        self.input_buffer = RWCacheBuffer()
+        self.output_buffer = RWCacheBuffer()
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
         self.sut = BrewpiProtocolV030(self.conduit)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.push_response([1, 0x81, 0x82, 3, 2, 4, 5])         # emulate a on-wire response
+        self.push_response([1, 0x81, 0x82, 3, 0, 2, 4, 5])         # emulate a on-wire response
         assert_future(future, is_(equal_to(bytes([4, 5]))))
 
     def test_resposne_must_match(self):
         """ The command ID is the same but the request data is different. So this doesn't match up with the previous.
             Request. """
         future = self.sut.read_value([1, 2, 3])
-        self.push_response([1, 0x81, 0x82, 4, 2, 4, 5])
+        self.push_response([1, 0x81, 0x82, 0, 4, 2, 4, 5])
         assert_that(future.done(), is_(False))
 
     def test_multiple_outstanding_requests(self):
@@ -297,10 +298,10 @@ class BrewpiV2ProtocolDecodeResponseTestCase(unittest.TestCase):
         future2 = self.sut.read_value([1, 2, 4])
 
         # push all the data, to be sure that
-        self.push_response([1, 0x81, 0x82, 4, 2, 2, 3])         # matches request 2
+        self.push_response([1, 0x81, 0x82, 4, 0, 2, 2, 3])         # matches request 2
         assert_future(future2, is_(equal_to(bytes([2, 3]))))
         assert_that(future1.done(), is_(False))
-        self.push_response([1, 0x81, 0x82, 3, 3, 4, 5, 6])      # matches request 1
+        self.push_response([1, 0x81, 0x82, 3, 0, 3, 4, 5, 6])      # matches request 1
         assert_future(future1, is_(equal_to(bytes([4, 5, 6]))))
 
     def push_response(self, data):
@@ -309,11 +310,11 @@ class BrewpiV2ProtocolDecodeResponseTestCase(unittest.TestCase):
         self.sut.read_response()
 
 
-class BrewpiV2ProtocolHexEncodingTestCase(unittest.TestCase):
+class BrewpiV030ProtocolHexEncodingTestCase(unittest.TestCase):
     """ A more complete test where multiple commands are sent, and the on-wire hex-encoded values are used. """
     def setUp(self):
-        self.input_buffer = CircularBuffer()
-        self.output_buffer = CircularBuffer()
+        self.input_buffer = RWCacheBuffer()
+        self.output_buffer = RWCacheBuffer()
         # this represents the far end of the pipe - input/output bytes sent as hex encoded binary
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
         text = build_chunked_hexencoded_conduit(self.conduit)
@@ -325,11 +326,11 @@ class BrewpiV2ProtocolHexEncodingTestCase(unittest.TestCase):
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.assert_request_sent(b'01 81 82 03 \n')        # NB: this is ascii encoded hex now, not binary data
+        self.assert_request_sent(b'01 81 82 03 00 \n')        # NB: this is ascii encoded hex now, not binary data
 
     def test_full_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.push_response(b'01 81 82 03 01 aB CD \n')      # emulate the response
+        self.push_response(b'01 81 82 03 00 01 aB CD \n')      # emulate the response
         assert_future(future, is_(equal_to(bytes([0xAB]))))
 
     def push_response(self, data):

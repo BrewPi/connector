@@ -21,13 +21,13 @@ class ProcessConnector(AbstractConnector):
         return self._conduit.open
 
     def _disconnect(self):
-        self._conduit.decorate.wait_for_exit()
+        pass
 
     def _connect(self) -> Conduit:
         try:
             args = self.args if self.args is not None else []
             p = ProcessConduit(self.image, *args)
-            return BufferedConduit(self.build_conduit(p))
+            return p
         except (OSError, ValueError) as e:
             raise ConnectorError from e
 

@@ -1,8 +1,6 @@
-import types
-
-__author__ = 'mat'
-
-from . import base
+import re
+from serial.tools import list_ports
+from connector import base
 import serial
 
 
@@ -27,6 +25,14 @@ class SerialConduit(base.Conduit):
         self.ser.close()
 
 
+def serial_ports():
+    """
+    Returns a generator for all available serial ports
+    """
+    for port in list_ports.comports():
+        yield port[0]
+
+
 def serial_connector_factory(*args, **kwargs) -> base.Conduit:
     """
     Creates a factory function that connects via the serial port.
@@ -39,4 +45,30 @@ def serial_connector_factory(*args, **kwargs) -> base.Conduit:
         return SerialConduit(ser)
 
     return open_serial_connector
+
+
+known_devices = {
+    (r"%mega2560\.name%.*",r"USB VID\:PID=2341\:0010.*"): "Arduino Mega2560",
+    (r"Arduino.*Leonardo.*",r"USB VID\:PID=2341\:8036.*"): "Arduino Leonardo",
+    (r"Spark Core.*Arduino.*",r"USB VID\:PID=1D50\:607D.*"): "Spark Core"
+}
+
+def matches(text, regex):
+    return re.match(regex, text)
+
+def find_arduino_ports(ports):
+    for p in ports:
+        port, name, desc = p
+        for d in known_devices.keys():
+            if matches(name, d[0]) and matches(desc, d[1]):
+                yield port
+
+def detect_port(port):
+    if port == "auto":
+        all_ports = tuple(list_ports.comports())
+        ports = tuple(find_arduino_ports(all_ports))
+        if not ports:
+            raise ValueError("Could not find arduino-compatible device in available ports. %s" % repr(all_ports))
+        return ports[0]
+    return port
 

@@ -1,13 +1,9 @@
 from conduit.base import Conduit
+from protocol.async import UnknownProtocolError
 from protocol.v02x import brewpi_v02x_protocol_sniffer
 from protocol.v03x import brewpi_v03x_protocol_sniffer
 
 __author__ = 'mat'
-
-
-class UnknownProtocolError(Exception):
-    pass
-
 
 all_sniffers = [brewpi_v03x_protocol_sniffer, brewpi_v02x_protocol_sniffer]
 
@@ -24,15 +20,3 @@ def determine_protocol(conduit: Conduit):
         except ValueError as e:
             raise UnknownProtocolError("unable to determine version from '%s'" % l) from e
     raise UnknownProtocolError()
-
-
-def tobytes(arg):
-    """
-    >>> tobytes("abc")
-    b'abc'
-    """
-    if isinstance(arg, type("")):
-        arg = bytes(arg, 'ascii')
-    return arg
-
-

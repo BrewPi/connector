@@ -11,7 +11,7 @@ def unsigned_byte(val):
     0
     >>> unsigned_byte(-1)
     255
-    >>> unsgined_byte(127)
+    >>> unsigned_byte(127)
     127
     >>> unsigned_byte(-128)
     128
@@ -262,6 +262,8 @@ class ChunkedHexTextInputStream(IOBase):
     def fetch_next(self):
         while not self.data and self.comment_level >= 0 and self._stream_has_data():
             d = self.stream.read(1)
+            if not d:
+                break
             if d == b'[':
                 self.comment_level += 1
             elif d == b']':
@@ -272,7 +274,9 @@ class ChunkedHexTextInputStream(IOBase):
                 self.data = d
 
     def _stream_has_data(self):
-        return self.stream.peek(1)
+        if hasattr(self.stream, 'peek'):
+            return self.stream.peek(1)
+        return True
 
     def detach(self):
         result = self.stream
@@ -305,7 +309,9 @@ class CaptureBufferedReader:
         return self.stream.peek(count)
 
     def peek_next_byte(self):
-        return self.stream.peek_next_byte()
+        next = self.stream.peek()
+        return next[0] if next else -1
+
 
     def as_bytes(self):
         return bytes(self.buffer.getbuffer())
@@ -615,7 +621,7 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         self.next_chunk_input = next_chunk_input
         self.next_chunk_output = next_chunk_output
 
-    def read_value(self, id_chain, expected_len) -> FutureResponse:
+    def read_value(self, id_chain, expected_len=0) -> FutureResponse:
         """ requests the value of the given object id is read. """
         return self._send_command(Commands.read_value, encode_id(id_chain), expected_len)
 
