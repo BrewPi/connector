@@ -66,8 +66,30 @@ def apply_conf(conf: Section, target):
         if hasattr(target,k):
             setattr(target, k, v)
 
-def apply_module(module):
-    apply(module, module.__name__)
+
+def reconstruct_name(path, package_depth):
+    """
+    >>> reconstruct_name('C:/drive/dir/package1/package2/module.py', 2)
+    'package1.package2.module'
+    >>> reconstruct_name('C:\\drive\\dir\\module.py', 0)
+    'module'
+    """
+    path = path.replace('\\', '/')
+    parts = path.split('/')
+    parts[-1] =  os.path.splitext(parts[-1])[0]
+    return '.'.join(parts[-package_depth-1:])
+
+
+def build_module_name(module, package_depth):
+    return module.__name__ if module.__name__ is not '__main__' else reconstruct_name(module.__file__, package_depth)
+
+
+def apply_module(module, package_depth=None):
+    """ The package is needed when a module is loaded as main. Then the name isn't the fully qualified name, but
+        just '__main__'. To reconstruct the original module name, we use the package, and combine with the filename
+    """
+    name = build_module_name(module, package_depth)
+    apply(module, name)
 
 def apply_package(module):
     apply(module, module.__package__)
