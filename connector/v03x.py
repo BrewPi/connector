@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from connector import id_service
 from protocol.async import FutureResponse
+from protocol.v03x import BrewpiProtocolV030
 
 __author__ = 'mat'
 
@@ -70,8 +71,6 @@ class ContainerTraits:
     def id_chain_for(self, slot):
         raise NotImplementedError
 
-    def __eq__(self, other):
-        return True
 
 class Controller:
     pass
@@ -279,7 +278,19 @@ class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
         return 1
 
 
-class EmptyDefinition(ContainedObject):
+class ObjectDefinition:
+    @classmethod
+    @abstractmethod
+    def decode_definition(cls, data_block):
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def encode_definition(cls, arg):
+        raise NotImplementedError
+
+
+class EmptyDefinition(ObjectDefinition):
     @classmethod
     def decode_definition(cls, data_block):
         raise ValueError("object does not require a definition block")
@@ -287,6 +298,29 @@ class EmptyDefinition(ContainedObject):
     @classmethod
     def encode_definition(cls, arg):
         raise ValueError("object does not require a definition block")
+
+
+class AnyBlockDefinition(ObjectDefinition):
+    @classmethod
+    def decode_definition(cls, data_block):
+        return data_block
+
+    @classmethod
+    def encode_definition(cls, arg):
+        return arg or b''
+
+
+class NonEmptyBlockDefinition(ObjectDefinition):
+    @classmethod
+    def encode_definition(cls, arg):
+        if not arg:
+            raise ValueError("requires a non-zero length block")
+        return arg
+
+    @classmethod
+    def decode_definition(cls, data_block):
+        return cls.encode_definition(data_block)
+
 
 # Now comes the application-specific objects.
 # Todo - it would be nice to separate these out, or make it extensible in python
@@ -298,6 +332,17 @@ class CurrentTicks(EmptyDefinition, ReadableObject, UserObject, LongDecoder):
 
 class DynamicContainer(EmptyDefinition, UserObject, Container):
     type_id = 4
+
+
+class PersistentValueBase(BufferDecoder, BufferEncoder):
+    def encoded_len(self):
+        return 0            # not known
+
+
+class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
+    type_id = 5
+
+
 
 
 class BuiltInObjectTypes:
@@ -312,7 +357,7 @@ class BuiltInObjectTypes:
     def from_id(cls, type_id) -> InstantiableObject:
         return BuiltInObjectTypes._from_id.get(type_id, None)
 
-    all_types = (CurrentTicks, DynamicContainer)
+    all_types = (CurrentTicks, DynamicContainer, PersistentValue)
     _from_id = dict((x.type_id, x) for x in all_types)
 
 
@@ -348,14 +393,14 @@ class BaseController(Controller):
             self.delete_profile(p)
 
     def read_value(self, obj: ReadableObject):
-        data = self._fetch_data_block(self.connector.protocol.read_value, obj.id_chain, obj.encoded_len())
+        data = self._fetch_data_block(self.p.read_value, obj.id_chain, obj.encoded_len())
         return obj.decode(data)
 
     def write_value(self, obj: WritableObject, value):
-        self._write_value(obj, value, self.connector.protocol.write_value)
+        self._write_value(obj, value, self.p.write_value)
 
     def delete_object(self, obj: ContainedObject):
-        self._handle_error(self.connector.protocol.delete_object, obj.id_chain)
+        self._delete_object_at(obj.id_chain)
 
     def next_slot(self, container) -> int:
         return self._handle_error(self.connector.protocol.next_slot, container.id_chain)
@@ -365,18 +410,18 @@ class BaseController(Controller):
         return self.profile_for(profile_id)
 
     def delete_profile(self, p: Profile):
-        self._handle_error(self.connector.protocol.delete_profile, p.profile_id)
+        self._handle_error(self.p.delete_profile, p.profile_id)
 
     def activate_profile(self, p: Profile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
-        self._handle_error(self.connector.protocol.activate_profile, Profile.id_for(p))
+        self._handle_error(self.p.activate_profile, Profile.id_for(p))
 
     def active_and_available_profiles(self):
         """
             returns a tuple - the first element is the active profile, or None if no profile is active.
             the second element is a sequence of profiles.
         """
-        future = self.connector.protocol.list_profiles()
+        future = self.p.list_profiles()
         data = BaseController.result_from(future)
         activate = self.profile_for(data[0])
         available = tuple([self.profile_for(x) for x in data[1:]])
@@ -387,7 +432,7 @@ class BaseController(Controller):
         return False if not active else active.profile_id == p.profile_id
 
     def list_objects(self, p: Profile):
-        future = self.connector.protocol.list_profile(p.profile_id)
+        future = self.p.list_profile(p.profile_id)
         data = BaseController.result_from(future)
         return tuple(self._materialize_object_descriptor(*d) for d in data)
 
@@ -395,16 +440,16 @@ class BaseController(Controller):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
             current_id = self.system_id().read()
             id_service.return_id(current_id)
-        self._handle_error(self.connector.protocol.reset,
+        self._handle_error(self.p.reset,
                            1 if erase_eeprom else 0 or
                            2 if hard_reset else 0)
 
     def read_system_value(self, obj: ReadableObject):
-        data = self._fetch_data_block(self.connector.protocol.read_system_value, obj.id_chain, obj.encoded_len())
+        data = self._fetch_data_block(self.p.read_system_value, obj.id_chain, obj.encoded_len())
         return obj.decode(data)
 
     def write_system_value(self, obj: WritableObject, value):
-        self._write_value(obj, value, self.connector.protocol.write_system_value)
+        self._write_value(obj, value, self.p.write_system_value)
 
     def _write_value(self, obj: WritableObject, value, fn):
         encoded = obj.encode(value)
@@ -412,8 +457,27 @@ class BaseController(Controller):
         if data != encoded:
             raise FailedOperationError("could not write value")
 
+    def _delete_object_at(self, id_chain, optional=False):
+        """
+        :param id_chain:    The id chain of the object to delete
+        :param optional:    When false, deletion must succeed (the object is deleted). When false, deletion may silently
+            fail for a non-existent object.
+        """
+        self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
+
     def create_object(self, obj_class, args=None, container=None, slot=None):
+        """
+        :param obj_class: The type of object to create
+        :param args: The constructor arguments for the object. (See documentation for each object for details.)
+        :param container: The container to create the object in, If None, the object is created in the root container
+            of the active profile.
+        :param slot:    The slot to create the object in. If None, the next available empty slot is used. If not None,
+            that specific slot is used, replacing any existing object at that location.
+        :return: The proxy object representing the created object in the controller
+        :rtype: an instance of obj_class
+        """
         container = container or self.root_container
+        slot is not None and self._delete_object_at(container.id_chain_for(slot), optional=True)
         slot = slot if slot is not None else self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
         if args is not None and obj_class.decode_definition(data)!=args:
@@ -438,10 +502,10 @@ class BaseController(Controller):
         self._handle_error(self.connector.protocol.create_object, id_chain, obj_class.type_id, data)
 
     @staticmethod
-    def _handle_error(fn, *args):
+    def _handle_error(fn, *args, allow_fail=False):
         future = fn(*args)
         error = BaseController.result_from(future)
-        if error < 0:
+        if error < 0 and not allow_fail:
             raise FailedOperationError("errorcode %d" % error)
         return error
 
@@ -496,6 +560,9 @@ class BaseController(Controller):
         container, slot = self._container_slot_from_id_chain(id_chain)
         return ObjectReference(self, container, slot, obj_class, args)
 
+    @property
+    def p(self)->BrewpiProtocolV030:    # short-hand and type hint
+        return self.connector.protocol
 
 class CrossCompileController(BaseController):
     """ additional options only available on the cross-compile """

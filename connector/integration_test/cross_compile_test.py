@@ -27,6 +27,5 @@ class CrossCompileTestCase(BaseControllerTestHelper, unittest.TestCase):
     def create_controller(self):
         return CrossCompileController(self.connector)
 
-
 if __name__ == '__main__':
     unittest.main()

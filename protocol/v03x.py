@@ -439,8 +439,8 @@ class ReadValueResponseDecoder(ResponseDecoder):
 
 class WriteValueResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
-        self._read_id_chain(buf)  # id chain
-        len = self._read_vardata(buf)  # length and body of data to write
+        self._read_id_chain(buf)    # id chain
+        self._read_vardata(buf)     # length and body of data to write
 
     def decode_response(self, stream):
         """ The write command response is a single variable length buffer indicating the value written. """
@@ -467,7 +467,7 @@ class DeleteObjectResponseDecoder(ResponseDecoder):
 
 class ListProfileResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
-        pass  # no additional command data in the original request
+        self._read_signed_byte(buf)        # profile id
 
     def decode_response(self, stream):
         """ retrieves a list of tuples (id, type, data) """
