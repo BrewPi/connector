@@ -1,18 +1,16 @@
-from abc import abstractmethod, ABCMeta
+import sys
 from time import sleep
 from hamcrest import assert_that, equal_to, is_, greater_than, less_than, calling, raises, is_not, all_of, any_of, \
     has_length
-import sys
 from connector import id_service
 from connector.v03x import BaseController, FailedOperationError, Profile, DynamicContainer, RootContainer, Container, \
     CurrentTicks, PersistentValue
 from test.config import apply_module
+from abc import abstractmethod
 
 __author__ = 'mat'
 
 import unittest
-
-no_stress_tests = True
 
 apply_module(sys.modules[__name__])
 
@@ -53,7 +51,7 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
         assert_that(c1.id_chain_for(10), is_(equal_to((5, 10))))
 
 
-class BaseControllerTestHelper(metaclass=ABCMeta):
+class BaseControllerTestHelper():
     connector = None
     controller = None
     initialize_id = True
@@ -204,12 +202,32 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         p.delete()
         self.assert_active_available(-1, [])
 
-    @unittest.skip
     def test_switch_profiles(self):
         """ create distinct profiles with different objects in each.
             verifies that activating profiles activates the appropriate objects.
         """
-
+        c = self.c
+        p1 = self.setup_profile()
+        o10 = c.create_object(CurrentTicks)
+        b1 = b'\x09\xA0\xFF'
+        o11 = c.create_object(PersistentValue, b1)
+        p2 = self.setup_profile()
+        b2 = b'\x19\xA1\xFE\x00\x01'
+        o20 = c.create_object(PersistentValue, b2)        # reversed order so they are in different slots
+        c.create_object(CurrentTicks)
+        self.reset()
+        # verify profiles can be listed
+        expected1 = (c.ref(CurrentTicks, None, (0,)), c.ref(PersistentValue, b1, (1,)))
+        expected2 = (c.ref(PersistentValue, b2, (0,)), c.ref(CurrentTicks, None, (1,)))
+        assert_that(c.list_objects(p2), is_(equal_to(expected2)))
+        assert_that(c.list_objects(p1), is_(equal_to(expected1)))
+        # verify values can be read - initially in profile 2
+        assert_that(c.read_value(o20), is_(b2), "value of persistent object in 2nd profile")
+        p1.activate()
+        assert_that(c.read_value(o11), is_(b1), "value of persistent object in 1st profile")
+        o10.delete()    # test object deletion as well
+        assert_that(c.list_objects(p1), is_(equal_to(tuple([c.ref(PersistentValue, b1, (1,))]))),
+                    "should remove deleted object")
 
     def test_open_profile_not_closed(self):
         """ adds objects to the open profile, and then causes a reset.
@@ -248,7 +266,6 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         self.reset()  # do the reset
         self.assert_active_available(p.profile_id, [p.profile_id])  # tests that the connection comes back up
 
-
     def test_deleted_slots_are_reused(self):
         """ adds objects to the open profile, and then causes a reset.
             on startup, verifies that the profile is still open, by creating more objects. """
@@ -260,6 +277,16 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         o1.delete()
         o4 = self.create_object()
         assert_that(o4.slot, is_(equal_to(slot)), "expected new object to use same slot as deleted object")
+
+    def test_list_objects_after_delete(self):
+        p = self.setup_profile()
+        assert_that(self.c.list_objects(p), has_length(0), "expected no objects in new profile")
+        o1 = self.c.create_object(PersistentValue, b'\x00')
+        o2 = self.c.create_object(PersistentValue, b'\x01')
+        assert_that(self.c.list_objects(p), has_length(2), "expected 2 objects in profile")
+        o1.delete()
+        assert_that(self.c.list_objects(p), has_length(1), "expected 1 object in profile")
+
 
     def test_dynamic_container_stress(self):
         self.setup_profile()

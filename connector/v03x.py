@@ -255,7 +255,7 @@ class ReadWriteBaseObject(ReadableObject, WritableObject):
     pass
 
 
-class ReadWriteUserObject(ReadWriteBaseObject):
+class ReadWriteUserObject(ReadWriteBaseObject, UserObject):
     def read(self):
         return self.controller.read_value(self)
 
@@ -341,8 +341,6 @@ class PersistentValueBase(BufferDecoder, BufferEncoder):
 
 class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
     type_id = 5
-
-
 
 
 class BuiltInObjectTypes:
@@ -465,7 +463,7 @@ class BaseController(Controller):
         """
         self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
 
-    def create_object(self, obj_class, args=None, container=None, slot=None):
+    def create_object(self, obj_class, args=None, container=None, slot=None)->InstantiableObject:
         """
         :param obj_class: The type of object to create
         :param args: The constructor arguments for the object. (See documentation for each object for details.)
