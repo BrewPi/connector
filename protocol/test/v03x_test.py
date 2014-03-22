@@ -16,11 +16,13 @@ import unittest
 
 class DequeStream(io.BufferedIOBase):
     def __init__(self, q:deque):
+        super().__init__()
         self.q = q
 
     def close(self):
         self.q = None
         super().close()
+
 
 class DequeReader(DequeStream):
     def readable(self):
@@ -32,6 +34,7 @@ class DequeReader(DequeStream):
             return bytes()
         return bytes([self.q.popleft()])
 
+
 class DequeWriter(DequeStream):
     def writable(self):
         return True
@@ -41,6 +44,7 @@ class DequeWriter(DequeStream):
         for x in buf:
             self.q.append(x)
         return len(buf)
+
 
 class RWCacheBuffer():
     """ simple implementation of a read and writable buffer. For single-threaded code in test.
@@ -54,7 +58,6 @@ class RWCacheBuffer():
     def close(self):
         self.reader.close()
         self.writer.close()
-
 
 
 def h2bstream(content):
@@ -82,7 +85,6 @@ class HexToBinaryStreamTestCase(unittest.TestCase):
         assert_that(s.writable(), is_(False))
         assert_that(s.readable(), is_(True))
 
-
 def collect_stream(stream):
     collect = bytearray()
     d = stream.read()
@@ -90,7 +92,6 @@ def collect_stream(stream):
         collect += d
         d = stream.read()
     return bytes(collect)
-
 
 class ChunkedHexTextInputStreamTestCase(unittest.TestCase):
     def test_zero_length_read_returns_empty_array(self):
@@ -164,7 +165,6 @@ class BinaryToHexOutputStreamTestCase(unittest.TestCase):
         stream.newline()
         stream.write_byte(255)
         assert_that(store.getvalue(), is_(equal_to(b"81 [hello world]\nFF ")))
-
 
     def test_flags(self):
         store = io.BytesIO()

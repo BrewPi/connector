@@ -1,5 +1,5 @@
-from abc import abstractmethod, ABCMeta
-from conduit.base import Conduit, BufferedConduit
+from abc import abstractmethod
+from conduit.base import Conduit
 from protocol.factory import determine_protocol, UnknownProtocolError
 from support.events import EventHook
 
@@ -21,7 +21,7 @@ class ConnectionNotAvailableError(ConnectorError):
     pass
 
 
-class Connector(metaclass=ABCMeta):
+class Connector():
     @property
     @abstractmethod
     def protocol(self):

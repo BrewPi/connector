@@ -1,5 +1,5 @@
-from abc import abstractmethod, ABCMeta
-from connector import controller_id
+from abc import abstractmethod
+from connector import id_service
 from protocol.async import FutureResponse
 
 __author__ = 'mat'
@@ -14,12 +14,6 @@ class FailedOperationError(Exception):
     pass
 
 
-""" The controller objects are simply proxies to the state that is stored in the embedded controller.
-    Other than an identifier, they are are stateless since the state resides in the controller.
-    (Any state other than the identifier is cached state and may be used in preference to fetching the
-    state from the external controller.)"""
-
-
 class CommonEqualityMixin(object):
     """ define a simple equals implementation for these value objects. """
     def __eq__(self, other):
@@ -31,6 +25,11 @@ class CommonEqualityMixin(object):
 
 
 class BaseControllerObject(CommonEqualityMixin):
+    """ The controller objects are simply proxies to the state that is stored in the embedded controller.
+    Other than an identifier, they are are stateless since the state resides in the controller.
+    (Any state other than the identifier is cached state and may be used in preference to fetching the
+    state from the external controller.)"""
+
     def __init__(self, controller):
         self.controller = controller
 
@@ -51,8 +50,14 @@ class ObjectReference(BaseControllerObject):
         todo - deferred until I know we really need this object oriented API. """
         pass
 
+    def __str__(self):
+        return "%s(%r)" % (self.__class__, self.__dict__)
 
-class ControllerObject(BaseControllerObject, metaclass=ABCMeta):
+    def __repr__(self):
+        return self.__str__()
+
+
+class ControllerObject(BaseControllerObject):
     @property
     @abstractmethod
     def id_chain(self):
@@ -61,16 +66,22 @@ class ControllerObject(BaseControllerObject, metaclass=ABCMeta):
 
 
 class ContainerTraits:
+    @abstractmethod
+    def id_chain_for(self, slot):
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        return True
+
+class Controller:
     pass
 
 
-class BaseController:
-    pass
+class TypedObject:
+    type_id = None
 
 
-class InstantiableObject(ControllerObject):
-    type_id = 0
-
+class InstantiableObject(ControllerObject, TypedObject):
     @classmethod
     @abstractmethod
     def decode_definition(cls, data_block: bytes):
@@ -79,7 +90,7 @@ class InstantiableObject(ControllerObject):
 
     @classmethod
     @abstractmethod
-    def encode_definition(self, args) -> bytes:
+    def encode_definition(cls, args) -> bytes:
         """ encodes the construction parameters for the object into a data block """
         raise NotImplementedError
 
@@ -93,13 +104,12 @@ class InstantiableObject(ControllerObject):
             self.controller = None
 
 
-
 class ContainedObject(ControllerObject):
     """ An object in a container. Contained objects have a slot that is the id relative to the container
         the object is in. The full id_chain is the container's id plus the object's slot in the container.
     """
 
-    def __init__(self, controller: BaseController, container: ContainerTraits, slot: int):
+    def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
         # todo - push the profile up to the root container and store controller in that.
         """
             :param controller:  The controller containing this object.
@@ -123,12 +133,6 @@ class UserObject(InstantiableObject, ContainedObject):
     pass
 
 
-class ContainerTraits:
-    @abstractmethod
-    def id_chain_for(self, slot):
-        raise NotImplementedError
-
-
 class Container(ContainedObject, ContainerTraits):
     def id_chain_for(self, slot):
         return self.id_chain + (slot,)
@@ -138,7 +142,7 @@ class RootContainer(ControllerObject, ContainerTraits):
     """ A root container is the top-level container - it is not contained in any container. """
     # todo - add the profile that this object is contained in
 
-    def __init__(self, controller: BaseController):
+    def __init__(self, controller: Controller):
         super().__init__(controller)
 
     def id_chain_for(self, slot):
@@ -151,9 +155,6 @@ class RootContainer(ControllerObject, ContainerTraits):
         :rtype:
         """
         return tuple()
-
-class Profile:
-    pass
 
 
 class Profile(BaseControllerObject):
@@ -179,7 +180,7 @@ class Profile(BaseControllerObject):
         return self.controller.is_active_profile(self)
 
     @classmethod
-    def id_for(cls, p:Profile):
+    def id_for(cls, p):
         return p.profile_id if p else -1
 
 
@@ -207,12 +208,12 @@ class ValueEncoder:
         raise NotImplementedError
 
 
-class ReadableObject(ContainedObject, ValueDecoder, metaclass=ABCMeta):
+class ReadableObject(ContainedObject, ValueDecoder):
     def read(self):
         return self.controller.read_value(self)
 
 
-class WritableObject(ContainedObject, ValueDecoder, ValueEncoder, metaclass=ABCMeta):
+class WritableObject(ContainedObject, ValueDecoder, ValueEncoder):
     def write(self, value):
         return self.controller.write_value(self, value)
 
@@ -300,9 +301,11 @@ class DynamicContainer(EmptyDefinition, UserObject, Container):
 
 
 class BuiltInObjectTypes:
+    # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
+    # that are pre-instantiated may still need to be referred to by type. Will tackle this when needed.
 
     @classmethod
-    def as_id(cls, obj: ContainedObject):
+    def as_id(cls, obj: InstantiableObject):
         return obj.type_id
 
     @classmethod
@@ -313,7 +316,7 @@ class BuiltInObjectTypes:
     _from_id = dict((x.type_id, x) for x in all_types)
 
 
-class BaseController:
+class BaseController(Controller):
     """ provides the operations common to all controllers.
     """
 
@@ -330,11 +333,11 @@ class BaseController:
     def system_id(self):
         return SystemID(self, self._sysroot, 0)
 
-    def initialize(self, id_service):
+    def initialize(self, fetch_id:callable):
         id_obj = self.system_id()
         current_id = id_obj.read()
         if int(current_id[0]) == 0xFF:
-            current_id = id_service()
+            current_id = fetch_id()
         id_obj.write(current_id)
         return current_id
 
@@ -364,7 +367,7 @@ class BaseController:
     def delete_profile(self, p: Profile):
         self._handle_error(self.connector.protocol.delete_profile, p.profile_id)
 
-    def activate_profile(self, p: Profile):
+    def activate_profile(self, p: Profile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
         self._handle_error(self.connector.protocol.activate_profile, Profile.id_for(p))
 
@@ -386,12 +389,12 @@ class BaseController:
     def list_objects(self, p: Profile):
         future = self.connector.protocol.list_profile(p.profile_id)
         data = BaseController.result_from(future)
-        return [self._materialize_object_descriptor(*d) for d in data]
+        return tuple(self._materialize_object_descriptor(*d) for d in data)
 
     def reset(self, erase_eeprom=False, hard_reset=True):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
             current_id = self.system_id().read()
-            controller_id.return_id(current_id)
+            id_service.return_id(current_id)
         self._handle_error(self.connector.protocol.reset,
                            1 if erase_eeprom else 0 or
                            2 if hard_reset else 0)
@@ -409,7 +412,7 @@ class BaseController:
         if data != encoded:
             raise FailedOperationError("could not write value")
 
-    def create_object(self, obj_class: InstantiableObject, args=None, container=None, slot=None):
+    def create_object(self, obj_class, args=None, container=None, slot=None):
         container = container or self.root_container
         slot = slot if slot is not None else self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
@@ -465,16 +468,33 @@ class BaseController:
             c = Container(self, c, x)
         return c
 
-    def _materialize_object_descriptor(self, obj_type, id, data):
+    @staticmethod
+    def container_chain_and_id(id_chain):
+        """
+        >>> BaseController.container_chain_and_id(b'\x50\x51\x52')
+        (b'\x50\x51', 82)
+        """
+        return id_chain[:-1], id_chain[-1]
+
+    def _container_slot_from_id_chain(self, id_chain):
+        chain_prefix, slot = self.container_chain_and_id(id_chain)
+        container = self.container_for(chain_prefix)
+        return container, slot
+
+    def _materialize_object_descriptor(self, id_chain, obj_type, data):
         """ converts the obj_type (int) to th eobject class, converts the id to a container+slot reference, and
             decodes the data.
         """
         # todo - the object descriptors should be in order so that we can dynamically build the container proxy
-        container = self.container_for(id[:-1])
-        slot = id[-1:]
+        container, slot = self._container_slot_from_id_chain(id_chain)
         cls = BuiltInObjectTypes.from_id(obj_type)
-        args = cls.decode_definition(data)
+        args = cls.decode_definition(data) if data else None
         return ObjectReference(self, container, slot, cls, args)
+
+    def ref(self, obj_class, args, id_chain):
+        """ helper method to create an object reference from the class, args and id_chain. """
+        container, slot = self._container_slot_from_id_chain(id_chain)
+        return ObjectReference(self, container, slot, obj_class, args)
 
 
 class CrossCompileController(BaseController):

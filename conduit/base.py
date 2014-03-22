@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from io import IOBase, RawIOBase, BufferedIOBase
+from io import IOBase
 import io
 
 __author__ = 'mat'
@@ -109,11 +109,11 @@ class BufferedConduit(ConduitStreamDecorator):
 class DefaultConduit(Conduit):
     """ provides the conduit streams from specific read/write file-like types (which may be the same value) """
 
-    def __init__(self, read: IOBase=None, write: IOBase=None):
+    def __init__(self, read=None, write=None):
         self._read = read
         self._write = write if write is not None else read
 
-    def set_streams(self, read: IOBase, write: IOBase=None):
+    def set_streams(self, read, write=None):
         self._read = read
         self._write = write if write is not None else read
 
