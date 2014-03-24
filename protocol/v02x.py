@@ -13,8 +13,9 @@ def brewpi_v02x_protocol_sniffer(line, conduit):
         if info.major == 0 and info.minor == 2:
             if info.revision == 3:
                 return BrewpiProtocolV023(conduit)
+    elif line[1]==':':      # hack for old versions
+        return BrewpiProtocolV023(conduit)
     return result
-
 
 
 class CharacterLCDInfo:
@@ -44,7 +45,6 @@ class MessageFormat:
     @abstractmethod
     def produce(self, item, writer):
         pass
-
 
 
 class JSONFormat(MessageFormat):
@@ -226,3 +226,6 @@ class BrewpiProtocolV023(BaseAsyncProtocolHandler):
         r = MessageResponse(defn)
         r.from_stream(reader)
         return r
+
+    def __str__(self):
+        return "v0.2.4"

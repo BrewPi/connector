@@ -6,7 +6,7 @@ from connector import id_service
 from connector.v03x import BaseController, FailedOperationError, Profile, DynamicContainer, RootContainer, Container, \
     CurrentTicks, PersistentValue
 from test.config import apply_module
-from abc import abstractmethod
+from abc import abstractmethod, ABCMeta
 
 __author__ = 'mat'
 
@@ -51,7 +51,7 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
         assert_that(c1.id_chain_for(10), is_(equal_to((5, 10))))
 
 
-class BaseControllerTestHelper():
+class BaseControllerTestHelper(metaclass=ABCMeta):
     connector = None
     controller = None
     initialize_id = True
@@ -286,7 +286,8 @@ class BaseControllerTestHelper():
         assert_that(self.c.list_objects(p), has_length(2), "expected 2 objects in profile")
         o1.delete()
         assert_that(self.c.list_objects(p), has_length(1), "expected 1 object in profile")
-
+        o3 = self.c.create_object(PersistentValue, b'\x02')
+        assert_that(self.c.list_objects(p), has_length(2), "expected 2 objects in profile")
 
     def test_dynamic_container_stress(self):
         self.setup_profile()

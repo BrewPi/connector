@@ -1,10 +1,12 @@
 import sys
 import serial
 import unittest
-from hamcrest import assert_that, equal_to, is_
+from mockito import mock, verifyNoMoreInteractions, verify, any, when
+from hamcrest import assert_that, equal_to, is_, has_length
 from conduit.test.async_test import AsyncConnectorTest
 
-from conduit.serial import serial_connector_factory, detect_port
+from conduit.serial_conduit import detect_port, SerialWatchdog, serial_connector_factory
+from conduit.watchdog import ResourceUnavailableEvent, ResourceAvailableEvent
 from test.config import apply_module
 
 __author__ = 'mat'
@@ -84,5 +86,86 @@ class VirtualPortSerialTestCase(AsyncConnectorTest, unittest.TestCase):
         self.assertWriteRead("reverse direction\nline\n", self.connections[::-1])
 
 
-if __name__ == '__main__':
-    unittest.main()
+arduino_device = (r"Arduino Leonardo", r"USB VID:PID=2341:8036")
+
+
+class CallableMock(object):
+    """ a work-around for mocks not being callable. https://code.google.com/p/mockito-python/issues/detail?id=5 """
+    def __init__(self, mock):
+        self.mock = mock
+
+    def __call__(self, *args, **kwargs):
+        return self.mock.__call__(*args, **kwargs)
+
+    def __getattr__(self, method_name):
+        return self.mock.__getattr__(method_name)
+
+
+def verify_disconnected(mock):
+    verify(mock).__exit__()
+
+def verify_connected(mock):
+    verify(mock).__enter__()
+
+
+class SerialWatchdogTest(unittest.TestCase):
+
+    def setUp(self):
+        self.sut = SerialWatchdog(self.mock_connection)
+        self.listener = mock()
+        self.sut.listeners += CallableMock(self.listener)
+        self.connections = {}
+
+    def mock_connection(self, port, device):
+        """ a mock factory to create connections. """
+        m = mock()
+        self.connections[port] = m
+        return m
+
+    def test_unknown_device_connected(self):
+        """ simulates connection of an unknown device """
+        device = ('test_port', 'mydevice', 'abc')
+        self.sut.update_ports((device,))
+        verifyNoMoreInteractions(self.listener)  # event listener not called
+        assert_that(self.connections, has_length(0), "expected no connections")
+
+    def test_device_connected(self):
+        device = ('test_port', arduino_device[0], arduino_device[1])
+        self.sut.update_ports((device,))
+        verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
+        assert_that(self.connections, has_length(1), "expected only one connection")
+        verify_connected(self.connections['test_port'])
+
+    def test_device_disconnected(self):
+        device = ('test_port', arduino_device[0], arduino_device[1])
+        self.sut.update_ports((device,))
+        self.sut.update_ports(tuple())
+        verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
+        verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
+        assert_that(self.connections, has_length(1), "expected only one connection")
+        verify_connected(self.connections['test_port'])
+        verify_disconnected(self.connections['test_port'])
+
+    def test_device_changed(self):
+        device = ('test_port', arduino_device[0], arduino_device[1])
+        self.sut.update_ports((device,))
+        test_device = ('test_port', 'test_device', 'test_device')
+        self.sut.update_ports((test_device,))
+        verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
+        verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
+        assert_that(self.connections, has_length(1), "expected only one connection")
+        verify_connected(self.connections['test_port'])
+        verify_disconnected(self.connections['test_port'])
+
+    def test_multiple_connections(self):
+        device = ('test_port', arduino_device[0], arduino_device[1])
+        device2 = ('test_port2', arduino_device[0], arduino_device[1])
+        self.sut.update_ports((device,device2))
+        test_device = ('test_port', 'test_device', 'test_device')
+        self.sut.update_ports((device2,test_device))
+        assert_that(self.connections, has_length(2), "expected two connections")
+        verify(self.listener, 2).__call__(any(ResourceAvailableEvent))
+        verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
+        verify_connected(self.connections['test_port'])
+        verify_disconnected(self.connections['test_port'])
+        verify_connected(self.connections['test_port2'])

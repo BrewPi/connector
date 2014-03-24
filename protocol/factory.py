@@ -12,11 +12,13 @@ def determine_protocol(conduit: Conduit):
     # at present all protocols are line based
     l = conduit.input.readline()
     line = l.decode('utf-8')
+    error = None
     for sniffer in all_sniffers:
         try:
             p = sniffer(line, conduit)
             if p:
                 return p
         except ValueError as e:
-            raise UnknownProtocolError("unable to determine version from '%s'" % l) from e
-    raise UnknownProtocolError()
+            error = e
+            break
+    raise UnknownProtocolError("unable to determine version from '%s'" % l) from error

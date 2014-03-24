@@ -1,6 +1,5 @@
-
-from . import base
-from socket import socket
+import socket
+from conduit import base
 
 __author__ = 'mat'
 

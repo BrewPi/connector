@@ -20,3 +20,7 @@ class EventHook(object):
 
     def clear_object_handlers(self, inObject):
         self.__handlers = [h for h in self.__handlers if h.im_self != inObject]
+
+    def fire_all(self, events):
+        for e in events:
+            self.fire(e)

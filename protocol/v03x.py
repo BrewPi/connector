@@ -723,3 +723,6 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
         if not decoder_type:
             raise ValueError("no decoder for cmd_id %d" % cmd_id)
         return decoder_type()
+
+    def __str__(self):
+        return "v0.3.0"
