@@ -4,4 +4,5 @@ influxdb
 fs
 pyhamcrest
 mockito
+nose
 configobj
