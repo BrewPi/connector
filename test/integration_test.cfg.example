@@ -1,0 +1,18 @@
+# fill in these details
+local_arduino_port =
+cross_compile =
+
+[conduit]
+    [[test]]
+        [[[serial_test]]]
+        port = $local_arduino_port
+        arduino_port_detect = $local_arduino_port
+
+[connector]
+    [[integration_test]]
+
+        [[[cross_compile_test]]]
+        cross_compile_exe = $cross_compile
+
+        [[[arduino_test]]]
+        arduino_serial_port=$local_arduino_port
