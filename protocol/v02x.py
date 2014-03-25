@@ -6,6 +6,7 @@ from protocol.version import VersionParser
 
 __author__ = 'mat'
 
+
 def brewpi_v02x_protocol_sniffer(line, conduit):
     result = None
     if line.startswith("N:"):
@@ -13,7 +14,7 @@ def brewpi_v02x_protocol_sniffer(line, conduit):
         if info.major == 0 and info.minor == 2:
             if info.revision == 3:
                 return BrewpiProtocolV023(conduit)
-    elif line[1]==':':      # hack for old versions
+    elif len(line) > 1 and line[1] == ':':  # hack for old versions
         return BrewpiProtocolV023(conduit)
     return result
 

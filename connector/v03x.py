@@ -8,7 +8,7 @@ __author__ = 'mat'
 """
 """
 
-timeout = 3000  # long enough to allow debugging, but not infinite so that build processes will eventually terminate
+timeout = 10  # long enough to allow debugging, but not infinite so that build processes will eventually terminate
 
 
 class FailedOperationError(Exception):

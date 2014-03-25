@@ -1,6 +1,4 @@
 import logging
-import os
-from pip.vendor.distlib.resources import ResourceContainer
 from serial import Serial, SerialException
 import time
 from conduit.base import Conduit
