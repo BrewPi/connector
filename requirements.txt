@@ -3,6 +3,6 @@ pyserial
 influxdb
 fs
 pyhamcrest
-mockito
+mockito-without-hardcoded-distribute-version
 nose
 configobj
