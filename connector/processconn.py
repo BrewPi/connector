@@ -1,7 +1,7 @@
 import logging
 import os
 from conduit.base import Conduit, BufferedConduit
-from conduit.process import ProcessConduit
+from conduit.process_conduit import ProcessConduit
 from connector.base import AbstractConnector, ConnectorError
 
 __author__ = 'mat'

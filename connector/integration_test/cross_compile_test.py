@@ -1,3 +1,4 @@
+import os
 import sys
 from connector.integration_test.base_test import BaseControllerTestHelper
 from connector.processconn import ProcessConnector
@@ -19,7 +20,7 @@ class CrossCompileTestCase(BaseControllerTestHelper, unittest.TestCase):
         super().__init__(name)
 
     def create_connector(self):
-        return ProcessConnector(cross_compile_exe, None)
+        return ProcessConnector(os.path.expanduser(cross_compile_exe), None)
 
     def create_controller(self):
         return CrossCompileController(self.connector)

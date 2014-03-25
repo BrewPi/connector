@@ -1,7 +1,7 @@
 import unittest
 from hamcrest import assert_that, equal_to
 import sys
-from conduit.process import ProcessConduit
+from conduit.process_conduit import ProcessConduit
 
 # todo - these tests will need to be made OS-agnostic
 from test.config import apply_module
