@@ -1,9 +1,12 @@
+import logging
 import os
 from conduit.base import Conduit, BufferedConduit
 from conduit.process import ProcessConduit
 from connector.base import AbstractConnector, ConnectorError
 
 __author__ = 'mat'
+
+logger = logging.getLogger(__name__)
 
 
 def is_executable(file):
@@ -29,6 +32,7 @@ class ProcessConnector(AbstractConnector):
             p = ProcessConduit(self.image, *args)
             return p
         except (OSError, ValueError) as e:
+            logger.error(e)
             raise ConnectorError from e
 
     def _try_available(self):
