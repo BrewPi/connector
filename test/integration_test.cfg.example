@@ -1,6 +1,6 @@
 # fill in these details
-local_arduino_port =
-cross_compile =
+# local_arduino_port =
+# cross_compile =
 
 [conduit]
     [[test]]

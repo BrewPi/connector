@@ -133,7 +133,7 @@ class InfluxDBTimeSeries(TimeSeries):
         >>> InfluxDBTimeSeries(None,'bar',['time'])._prepare_query('foo %(name)s quux')
         'foo bar quux'
         >>> InfluxDBTimeSeries(None,'bar',['time', 'orange'])._prepare_query('foo %(select_cols)s %(name)s quux')
-        'foo time,orange bar quux'
+        'foo orange bar quux'
         """
         return q % self.__dict__
 

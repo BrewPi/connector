@@ -28,7 +28,7 @@ def local_datetime_to_millis(dt:datetime):
     86400000
     """
     secs_since_epoch = time.mktime(dt.utctimetuple())
-    result = int(secs_since_epoch * 1000) + (dt.microsecond/1000)
+    result = int((secs_since_epoch * 1000) + (dt.microsecond/1000))
     return result
 
 def timezone_utc_offset():
