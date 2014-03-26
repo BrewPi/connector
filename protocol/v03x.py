@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
 from io import IOBase, BytesIO, BufferedIOBase
-from conduit.base import Conduit, DefaultConduit
+from conduit.base import Conduit, DefaultConduit, ConduitStreamDecorator
 from protocol.async import BaseAsyncProtocolHandler, FutureResponse, Request, Response, ResponseSupport
 from protocol.version import VersionParser
 
@@ -568,20 +568,27 @@ class ListSystemValuesCommandDecoder(ListProfileResponseDecoder):
     pass
 
 
+class ChunkedHexEncodedConduit(ConduitStreamDecorator):
+    chunker = None
+    def _wrap_input(self, input):
+        self.chunker = ChunkedHexTextInputStream(input)
+        return HexToBinaryInputStream(self.chunker)
+
+    def _wrap_output(self, output):
+        return BinaryToHexOutputStream(output)
+
+    def next_chunk_input(self):
+        self.chunker.next_chunk()
+
+    def next_chunk_output(self):
+        self.output.newline()
+
+
 def build_chunked_hexencoded_conduit(conduit):
     """ Builds a binary conduit that converts the binary data to ascii-hex digits.
         Input/Output are chunked via newlines. """
-    chunker = ChunkedHexTextInputStream(conduit.input)
-    hex_in = HexToBinaryInputStream(chunker)
-    hex_out = BinaryToHexOutputStream(conduit.output)
-
-    def next_chunk_input():
-        chunker.next_chunk()
-
-    def next_chunk_output():
-        hex_out.newline()
-
-    return DefaultConduit(hex_in, hex_out), next_chunk_input, next_chunk_output
+    chunked = ChunkedHexEncodedConduit(conduit)
+    return chunked, chunked.next_chunk_input, chunked.next_chunk_output
 
 
 def nop():
