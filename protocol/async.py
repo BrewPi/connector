@@ -171,6 +171,7 @@ class AsyncHandler:
         self.background_thread.join()
         self.background_thread = None
 
+
 class BaseAsyncProtocolHandler:
     """
     Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not dndefined
@@ -192,7 +193,7 @@ class BaseAsyncProtocolHandler:
 
     def start_background_thread(self):
         if self.async_thread is None:
-            self.async_thread = AsyncHandler(self.read_response)
+            self.async_thread = AsyncHandler(self.read_response_async)
             self.async_thread.start()
 
     def stop_background_thread(self):
@@ -247,6 +248,13 @@ class BaseAsyncProtocolHandler:
     def _decode_response(self) -> Response:
         """ reads the next response from the conduit. """
         raise NotImplementedError
+
+    def read_response_async(self):
+        if not self._conduit.open:
+            self.stop_background_thread()
+            return None
+        else:
+            return self.read_response()
 
     def read_response(self):
         """ reads the next response from the conduit and processes it. """

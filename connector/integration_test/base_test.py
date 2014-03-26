@@ -97,10 +97,11 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         controller_id = self.controller.system_id().read()
         assert_that(controller_id, is_(equal_to(b'\xFF')), "expected id to have been reset on erase eeprom")
 
-    def test_create_multiple_profiles(self):
-        """ given a new controller,
-            when creating the maximum number of profiles, then each profile should have a distinct profile id
-            when another profile is created, then an exception is thrown
+    def test_create_max_profiles(self):
+        """ creates many profiles and verifies they have distinct ids:
+                given a new controller,
+                when creating the maximum number of profiles, then each profile should have a distinct profile id
+                when another profile is created, then an exception is thrown
         """
         current_id = Profile.id_for(self.c.active_and_available_profiles()[0])
         profiles = []

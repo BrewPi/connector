@@ -36,7 +36,9 @@ class SerialConnector(AbstractConnector):
         if not s.isOpen():
             try:
                 s.open()
+                logger.info("opened serial port %s" % self._serial.port)
             except SerialException as e:
+                logger.error("error opening serial port %s: %s" % self._serial.port, e)
                 raise ConnectorError from e
 
     def _connect(self)->Conduit:
