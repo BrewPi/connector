@@ -168,7 +168,7 @@ class AsyncHandler:
 
     def stop(self):
         self.stop_event.set()
-        if not self.background_thread is threading.current_thread():
+        if self.background_thread and not self.background_thread is threading.current_thread():
             self.background_thread.join()
         self.background_thread = None
 
@@ -252,7 +252,7 @@ class BaseAsyncProtocolHandler:
 
     def read_response_async(self):
         if not self._conduit.open:
-            self.stop_background_thread()
+            self.async_thread.stop()
             return None
         else:
             return self.read_response()
