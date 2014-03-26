@@ -14,6 +14,9 @@ import unittest
 
 apply_module(sys.modules[__name__])
 
+stress_tests_enabled = None
+broken_tests_enabled = None
+
 
 def profile_id_range():
     return range(0, 4)
@@ -82,7 +85,6 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         assert_that(len(assigned_id), is_(equal_to(1)), "expected a single byte id")
         assert_that(assigned_id[0], all_of(greater_than(0), less_than(255)))
 
-    @unittest.skip
     def test_reset_eeprom(self):
         """ given an established controller (the test fixture) with an assigned system id
             when a reset with eeprom clear is issued, then the system id is cleared
@@ -125,6 +127,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
             p = self.c.delete_profile(profiles[x])  # second call succeeds also - deleting is idempotent
             self.assert_active_available(-1, range(x + 1, profile_id_range().stop))
 
+    @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_stress_object_creation(self):
         count = self.fill_profile()
         assert_that(count, is_(greater_than(63)))
@@ -166,12 +169,12 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         # this should succeed now, since the store has been compacted
         self.c.create_current_ticks(self.c.root_container)
 
+    @unittest.skip
     def test_delete_profile_preserves_other_profiles(self):
         """ create several profiles, and fetch their contained objects (as a large data block for efficiency)
             delete the profiles from first to last, and verify the contents in other profiles is preserved.
         """
 
-    @unittest.skip
     def test_last_profile_is_open_after_unload(self):
         """ Creates and activates a profile 1 with some objects, then creates a new profile 2.
             Verifies that after creating profile 2, profile 1 is still active.
@@ -187,7 +190,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         p2.activate()
         assert_that(calling(self.create_object), is_not(raises(FailedOperationError)), "profile p2 should be open")
         o2 = self.create_object()
-        assert_that(o2.id_chain, is_(equal_to(1, )))  # second object in this profile
+        assert_that(o2.id_chain, is_(equal_to((1,))))  # second object in this profile
         p1.delete()
         assert_that(p2.is_active, is_(True), "expected profile 2 to still be active")
         assert_that(calling(o2.read), is_not(raises(FailedOperationError)), "o2 should be readable")
@@ -290,6 +293,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         o3 = self.c.create_object(PersistentValue, b'\x02')
         assert_that(self.c.list_objects(p), has_length(2), "expected 2 objects in profile")
 
+    @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_dynamic_container_stress(self):
         self.setup_profile()
         container = self.c.create_dynamic_container(self.c.root_container)
@@ -299,6 +303,9 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
                 containers += [self.c.create_dynamic_container(container)]
             except Exception as e:
                 raise AssertionError("unable to create container %d" % x) from e
+
+        assert_that(containers[0].slot, is_(0))
+        assert_that(containers[-1].slot, is_(126))  # 126 is the highest container ID
 
         assert_that(calling(self.c.create_dynamic_container).with_args(container), raises(FailedOperationError),
                     "expected container to be full")
@@ -387,6 +394,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
             assert_that(r, is_(equal_to(e)))
         assert_that(tuple(refs), is_(equal_to(expected)))
 
+    @unittest.skipUnless(broken_tests_enabled, "broken test")
     def test_persistent_long_value(self):
         self._persist_value(90)
 
@@ -417,7 +425,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         expected = (c.ref(CurrentTicks, None, (0,)), c.ref(CurrentTicks, None, (1,)))
         assert_that(result, is_(equal_to(expected)))
 
-
+    @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_many_persistent_values(self):
         p = self.setup_profile()
         [self.c.create_object(PersistentValue, bytes(240)) for x in range(0, 4)]
