@@ -153,6 +153,7 @@ class AsyncHandler:
     def start(self):
         if self.background_thread is None:
             t = threading.Thread(target = self._loop, args = self.args)
+            t.setDaemon(True)
             self.stop_event = threading.Event()
             self.background_thread = t
             t.start()

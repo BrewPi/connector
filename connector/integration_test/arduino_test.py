@@ -27,14 +27,17 @@ class SerialPortTestCase(unittest.TestCase):
         s.setBaudrate(arduino_baud)
         assert_that(s.isOpen(), is_(False), "expected serial port to be initially closed")
         s.open()
-        sleep(1)
+        sleep(5)
         s.write(bytes(b'00\x0A'))  # null command
 
         self.serial = s
         t = Thread(target = self.async_read)
+        t.setDaemon(True)
         t.start()
+
         t.join(10)
         assert_that(t.is_alive(), is_(False), "exepcted thread to terminate")
+
 
     def async_read(self):
         l = self.serial.readline()
