@@ -3,14 +3,13 @@ The original and ng brewpi protocols are asynchronous. They are represented abst
 """
 from abc import abstractmethod
 from collections import defaultdict, Callable
-
 from concurrent.futures import Future
 from io import IOBase
-from threading import Thread, Condition, Event
-import types
 from conduit.base import Conduit
 
 import logging
+import threading
+import types
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,8 @@ def tobytes(arg):
     b'abc'
     """
     if isinstance(arg, type("")):
-        arg = bytes(arg, 'ascii')
+        # noinspection PyArgumentList
+        arg = bytes(arg, encoding='ascii')
     return arg
 
 
@@ -152,8 +152,8 @@ class AsyncHandler:
 
     def start(self):
         if self.background_thread is None:
-            t = Thread(target = self._loop, args = self.args)
-            self.stop_event = Event()
+            t = threading.Thread(target = self._loop, args = self.args)
+            self.stop_event = threading.Event()
             self.background_thread = t
             t.start()
 
@@ -168,7 +168,8 @@ class AsyncHandler:
 
     def stop(self):
         self.stop_event.set()
-        self.background_thread.join()
+        if not self.background_thread is threading.current_thread():
+            self.background_thread.join()
         self.background_thread = None
 
 
@@ -226,7 +227,7 @@ class BaseAsyncProtocolHandler:
         """ arranges for the request to be streamed. This implementation is synchronous, but subclasses may choose
             to send the request asynchronously. """
         request.to_stream(self._conduit.output)
-        self._conduit.output.flush()
+        #self._conduit.output.flush()
         self._stream_request_sent(request)
 
     def _register_future(self, future: FutureResponse):

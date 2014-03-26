@@ -22,7 +22,7 @@ class SerialConnector(AbstractConnector):
         super().__init__()
         self._serial = serial
         if serial.isOpen():
-            raise ValueError
+            raise ValueError("serial object should be initially closed")
 
     def _connected(self):
         return self._serial.isOpen()
@@ -37,7 +37,7 @@ class SerialConnector(AbstractConnector):
             try:
                 s.open()
                 logger.info("opened serial port %s" % self._serial.port)
-                time.sleep(1)
+                time.sleep(5)
             except SerialException as e:
                 logger.error("error opening serial port %s: %s" % self._serial.port, e)
                 raise ConnectorError from e
