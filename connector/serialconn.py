@@ -37,6 +37,7 @@ class SerialConnector(AbstractConnector):
             try:
                 s.open()
                 logger.info("opened serial port %s" % self._serial.port)
+                time.sleep(1)
             except SerialException as e:
                 logger.error("error opening serial port %s: %s" % self._serial.port, e)
                 raise ConnectorError from e

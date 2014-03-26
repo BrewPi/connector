@@ -1,6 +1,10 @@
+from threading import Thread
+from time import sleep
+from hamcrest import assert_that, is_, starts_with, equal_to
 import nose
 from serial import Serial
 import sys
+from conduit.serial_conduit import SerialConduit
 from connector.integration_test.base_test import BaseControllerTestHelper
 from connector.serialconn import SerialConnector
 from connector.v03x import ArduinoController
@@ -13,6 +17,32 @@ arduino_serial_port = None
 arduino_baud = None
 
 apply_module(sys.modules[__name__], 2)
+
+
+@unittest.skipUnless(arduino_serial_port, "arduino_serial not defined")
+class SerialPortTestCase(unittest.TestCase):
+    def test_mutithreaded_serial(self):
+        s = Serial()
+        s.setPort(arduino_serial_port)
+        s.setBaudrate(arduino_baud)
+        assert_that(s.isOpen(), is_(False), "expected serial port to be initially closed")
+        s.open()
+        sleep(1)
+        s.write(bytes(b'00\x0A'))  # null command
+
+        self.serial = s
+        t = Thread(target = self.async_read)
+        t.start()
+        t.join(10)
+        assert_that(t.is_alive(), is_(False), "exepcted thread to terminate")
+
+    def async_read(self):
+        l = self.serial.readline()
+        line = l.decode('utf-8')
+        assert_that(line, starts_with('['), "expected version string/protocol identifier")
+        l = self.serial.readline()
+        line = l.decode('utf-8')
+        assert_that(line, is_(equal_to("00\n")), "expected 00 command response")
 
 @unittest.skipUnless(arduino_serial_port, "arduino_serial not defined")
 class ArduinoTestCase(BaseControllerTestHelper, unittest.TestCase):
