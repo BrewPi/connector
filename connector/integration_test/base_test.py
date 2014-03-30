@@ -4,7 +4,7 @@ from hamcrest import assert_that, equal_to, is_, greater_than, less_than, callin
     has_length
 from connector import id_service
 from connector.v03x import BaseController, FailedOperationError, Profile, DynamicContainer, RootContainer, Container, \
-    CurrentTicks, PersistentValue
+    CurrentTicks, PersistentValue, PersistChangeValue
 from test.config import apply_module
 from abc import abstractmethod, ABCMeta
 
@@ -431,6 +431,19 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         [self.c.create_object(PersistentValue, bytes(240)) for x in range(0, 4)]
         assert_that(calling(self.c.create_object).with_args(PersistentValue, bytes(240)), raises(FailedOperationError),
                     "Expected last allocation to fail due to insufficient eeprom space")
+
+    def test_persist_change_value(self):
+        p = self.setup_profile()
+        v = self.c.create_object(PersistChangeValue, (300, 50))
+        assert_that(v.value, is_(equal_to(300)), "expected initial value to be 500")
+        v.value = -400
+        assert_that(v.value, is_(equal_to(-400)), "expected updated value")
+        v.value = -420
+        assert_that(v.value, is_(equal_to(-420)), "expected updated value")
+        self.reset()
+        assert_that(v.value, is_(equal_to(-400)), "expected value to be -400 since this was the last value with "
+                                                 "difference > than threshold of 50")
+
 
     def create_object(self) -> CurrentTicks:
         """ create some arbitrary object. """

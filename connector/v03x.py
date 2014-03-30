@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from connector import id_service
 from protocol.async import FutureResponse
-from protocol.v03x import BrewpiProtocolV030
+from protocol.v03x import BrewpiProtocolV030, unsigned_byte, signed_byte
 
 __author__ = 'mat'
 
@@ -201,9 +201,14 @@ class ValueEncoder:
         """ The number of byte expected for in the encoding of this value.  """
         raise NotImplementedError
 
-    @abstractmethod
     def encode(self, value):
-        """ Decodes a buffer into the value for this object. """
+        """ Encodes an object into a buffer. """
+        buf = bytearray(self.encoded_len())
+        self._encode(value, buf)
+        return bytes(buf)
+
+    @abstractmethod
+    def _encode(self, value, buf):
         raise NotImplementedError
 
 
@@ -219,7 +224,7 @@ class WritableObject(ContainedObject, ValueDecoder, ValueEncoder):
 
 class LongDecoder(ValueDecoder):
     def decode(self, buf):
-        return ((((buf[0] * 256) + buf[1]) * 256) + buf[2]) * 256 + buf[3]
+        return ((((signed_byte(buf[0]) * 256) + buf[1]) * 256) + buf[2]) * 256 + buf[3]
 
     def encoded_len(self):
         return 4
@@ -227,7 +232,7 @@ class LongDecoder(ValueDecoder):
 
 class ShortDecoder(ValueDecoder):
     def decode(self, buf):
-        return buf[0] * 256 + buf[1]
+        return signed_byte(buf[0]) * 256 + buf[1]
 
     def encoded_len(self):
         return 2
@@ -235,10 +240,29 @@ class ShortDecoder(ValueDecoder):
 
 class ByteDecoder(ValueDecoder):
     def decode(self, buf):
-        return int(buf[0])
+        return signed_byte(buf[0])
 
     def encoded_len(self):
         return 1
+
+
+class ByteEncoder(ValueEncoder):
+    def _encode(self, value, buf):
+        buf[0] = unsigned_byte(value)
+
+    def encoded_len(self):
+        return 1
+
+
+class ShortEncoder(ValueEncoder):
+    def _encode(self, value, buf):
+        if value<0:
+            value += 64*1024
+        buf[0] = unsigned_byte(int(value / 256))
+        buf[1] = value % 256
+
+    def encoded_len(self):
+        return 2
 
 
 class BufferDecoder(ValueDecoder):
@@ -321,6 +345,15 @@ class NonEmptyBlockDefinition(ObjectDefinition):
     def decode_definition(cls, data_block):
         return cls.encode_definition(data_block)
 
+class ReadWriteValue(ReadWriteBaseObject):
+    @property
+    def value(self):
+        return self.read()
+
+    @value.setter
+    def value(self, v):
+        self.write(v)
+
 
 # Now comes the application-specific objects.
 # Todo - it would be nice to separate these out, or make it extensible in python
@@ -342,6 +375,30 @@ class PersistentValueBase(BufferDecoder, BufferEncoder):
 class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
     type_id = 5
 
+class ValueProfile:
+    type_id = 6
+
+class LogicActuator:
+    type_id = 7
+
+class BangBangController:
+    type_id = 8
+
+
+class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
+    type_id = 9
+    shortEnc = ShortEncoder()
+    shortDec = ShortDecoder()
+
+    @classmethod
+    def encode_definition(cls, arg):
+        if arg[1]<0:
+            raise ValueError("threshold < 0")
+        return cls.shortEnc.encode(arg[0]) + cls.shortEnc.encode(arg[1])
+
+    @classmethod
+    def decode_definition(cls, data_block: bytes):
+        return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
 
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
@@ -355,7 +412,8 @@ class BuiltInObjectTypes:
     def from_id(cls, type_id) -> InstantiableObject:
         return BuiltInObjectTypes._from_id.get(type_id, None)
 
-    all_types = (CurrentTicks, DynamicContainer, PersistentValue)
+    all_types = (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
+        PersistChangeValue)
     _from_id = dict((x.type_id, x) for x in all_types)
 
 
@@ -478,9 +536,9 @@ class BaseController(Controller):
         slot is not None and self._delete_object_at(container.id_chain_for(slot), optional=True)
         slot = slot if slot is not None else self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
-        if args is not None and obj_class.decode_definition(data)!=args:
-            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s"
-                             % args, data, obj_class.decode_definition(data))
+        dec = args and obj_class.decode_definition(data)
+        if dec!=args:
+            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % args, data, dec)
         self._create_object(container, obj_class, slot, data)
         return obj_class(self, container, slot)
 
