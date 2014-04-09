@@ -49,7 +49,7 @@ class SerialPortTestCase(unittest.TestCase):
         assert_that(line, is_(equal_to("00\n")), "expected 00 command response")
 
 @unittest.skipUnless(arduino_serial_port, "arduino_serial not defined")
-class ArduinoTestCase(BaseControllerTestHelper, unittest.TestCase):
+class BaseArduinoTestCase:
     def __init__(self, name):
         super().__init__(name)
         self.initialize_id = True
@@ -63,3 +63,6 @@ class ArduinoTestCase(BaseControllerTestHelper, unittest.TestCase):
     def create_controller(self):
         return ArduinoController(self.connector)
 
+
+class ArduinoTestCase(BaseArduinoTestCase, BaseControllerTestHelper, unittest.TestCase):
+    pass

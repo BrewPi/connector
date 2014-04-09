@@ -54,7 +54,7 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
         assert_that(c1.id_chain_for(10), is_(equal_to((5, 10))))
 
 
-class BaseControllerTestHelper(metaclass=ABCMeta):
+class BaseControllerTestHelper():
     connector = None
     controller = None
     initialize_id = True
@@ -70,7 +70,7 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
         success = False
         try:
             self.initialize_controller()
-            self.test_has_assigned_id()
+            self.assert_has_assigned_id()
             self.controller.full_erase()
             act = self.c.active_and_available_profiles()
             assert_that(act[0], is_(None), "no profile should be loaded by default")
@@ -80,10 +80,71 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
             if not success and self.connector:
                 self.connector.disconnect()
 
-    def test_has_assigned_id(self):
+    def assert_has_assigned_id(self):
         assigned_id = self.c.system_id().read()
         assert_that(len(assigned_id), is_(equal_to(1)), "expected a single byte id")
         assert_that(assigned_id[0], all_of(greater_than(0), less_than(255)))
+
+
+    @abstractmethod
+    def create_controller(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def create_connector(self):
+        raise NotImplementedError
+
+    def assert_active_available(self, expected_active:int, expected_available):
+        aa = self.c.active_and_available_profiles()
+        active = Profile.id_for(aa[0])
+        available = [Profile.id_for(p) for p in aa[1]]
+        assert_that(active, is_(equal_to(expected_active)), "active profile")
+        assert_that(tuple(available), is_(equal_to(tuple(expected_available))), "available profiles")
+
+    def assign_id(self):
+        return id_service.simple_id_service
+
+    def create_connection(self):
+        # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
+        self.connector.connect()
+        self.protocol = self.controller.connector.protocol  # so we can access the protocol when the conduit is disconnected
+        self.protocol.start_background_thread()
+        if self.initialize_id:
+            self.controller.initialize(self.assign_id())
+
+    def discard_connection(self):
+        self.c.connector.disconnect()
+        self.protocol.stop_background_thread()
+
+    def tearDown(self):
+        self.discard_connection()
+
+    def reset(self, erase_eeprom=False):
+        """ allows for a controller reset mid-test """
+        # todo - the controller should determine the appropriate reset required
+        # desktop/leonardo - do a full reset
+        # mega/uno - do not, since serial connection does a reset
+        self.controller.reset(erase_eeprom, False)
+        self.discard_connection()
+        self.create_connection()
+
+    def setup_profile(self) -> Profile:
+        """ create a profile and activate it. Verifies that it is active. """
+        profile = self.c.create_profile()
+        profile.activate()
+        assert_that(profile.is_active, is_(True))
+        return profile
+
+    @property
+    def c(self) -> BaseController:  # some type hinting for the IDE
+        return self.controller
+
+
+class GeneralControllerTests(BaseControllerTestHelper):
+    """ The original test suite before they were factored out in to separate test classes """
+
+    def test_has_assigned_id(self):
+        self.assert_has_assigned_id()
 
     def test_reset_eeprom(self):
         """ given an established controller (the test fixture) with an assigned system id
@@ -448,59 +509,6 @@ class BaseControllerTestHelper(metaclass=ABCMeta):
     def create_object(self) -> CurrentTicks:
         """ create some arbitrary object. """
         return self.c.create_current_ticks(self.c.root_container)
-
-    @abstractmethod
-    def create_controller(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def create_connector(self):
-        raise NotImplementedError
-
-    def assert_active_available(self, expected_active:int, expected_available):
-        aa = self.c.active_and_available_profiles()
-        active = Profile.id_for(aa[0])
-        available = [Profile.id_for(p) for p in aa[1]]
-        assert_that(active, is_(equal_to(expected_active)), "active profile")
-        assert_that(tuple(available), is_(equal_to(tuple(expected_available))), "available profiles")
-
-    def assign_id(self):
-        return id_service.simple_id_service
-
-    def create_connection(self):
-        # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
-        self.connector.connect()
-        self.protocol = self.controller.connector.protocol  # so we can access the protocol when the conduit is disconnected
-        self.protocol.start_background_thread()
-        if self.initialize_id:
-            self.controller.initialize(self.assign_id())
-
-    def discard_connection(self):
-        self.c.connector.disconnect()
-        self.protocol.stop_background_thread()
-
-    def tearDown(self):
-        self.discard_connection()
-
-    def reset(self, erase_eeprom=False):
-        """ allows for a controller reset mid-test """
-        # todo - the controller should determine the appropriate reset required
-        # desktop/leonardo - do a full reset
-        # mega/uno - do not, since serial connection does a reset
-        self.controller.reset(erase_eeprom, False)
-        self.discard_connection()
-        self.create_connection()
-
-    def setup_profile(self) -> Profile:
-        """ create a profile and activate it. Verifies that it is active. """
-        profile = self.c.create_profile()
-        profile.activate()
-        assert_that(profile.is_active, is_(True))
-        return profile
-
-    @property
-    def c(self) -> BaseController:  # some type hinting for the IDE
-        return self.controller
 
 
 if __name__ == '__main__':

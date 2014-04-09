@@ -17,6 +17,7 @@ class FailedOperationError(Exception):
 
 class CommonEqualityMixin(object):
     """ define a simple equals implementation for these value objects. """
+
     def __eq__(self, other):
         return hasattr(other, '__dict__') and isinstance(other, self.__class__) \
             and self.__dict__ == other.__dict__
@@ -39,6 +40,7 @@ class ObjectReference(BaseControllerObject):
     """ Describes a reference to an object in the controller.
         The reference describes the object's location (container/slot)
         the class of the object and the arguments used to configure it. """
+
     def __init__(self, controller, container, slot, obj_class, args):
         super().__init__(controller)
         self.container = container
@@ -189,8 +191,11 @@ class ValueDecoder:
         """ The number of byte expected for in the encoding of this value.  """
         raise NotImplementedError
 
-    @abstractmethod
     def decode(self, buf):
+        return self._decode(buf)
+
+    @abstractmethod
+    def _decode(self, buf):
         """ Decodes a buffer into the value for this object. """
         raise NotImplementedError
 
@@ -204,8 +209,7 @@ class ValueEncoder:
     def encode(self, value):
         """ Encodes an object into a buffer. """
         buf = bytearray(self.encoded_len())
-        self._encode(value, buf)
-        return bytes(buf)
+        return bytes(self._encode(value, buf))
 
     @abstractmethod
     def _encode(self, value, buf):
@@ -223,23 +227,24 @@ class WritableObject(ContainedObject, ValueDecoder, ValueEncoder):
 
 
 class LongDecoder(ValueDecoder):
-    def decode(self, buf):
-        return ((((signed_byte(buf[0]) * 256) + buf[1]) * 256) + buf[2]) * 256 + buf[3]
+    def _decode(self, buf):
+        """ decodes a little-endian encoded 4 byte value. """
+        return ((((signed_byte(buf[3]) * 256) + buf[2]) * 256) + buf[1]) * 256 + buf[0]
 
     def encoded_len(self):
         return 4
 
 
 class ShortDecoder(ValueDecoder):
-    def decode(self, buf):
-        return signed_byte(buf[0]) * 256 + buf[1]
+    def _decode(self, buf):
+        return (signed_byte(buf[1]) * 256) + buf[0]
 
     def encoded_len(self):
         return 2
 
 
 class ByteDecoder(ValueDecoder):
-    def decode(self, buf):
+    def _decode(self, buf):
         return signed_byte(buf[0])
 
     def encoded_len(self):
@@ -249,6 +254,7 @@ class ByteDecoder(ValueDecoder):
 class ByteEncoder(ValueEncoder):
     def _encode(self, value, buf):
         buf[0] = unsigned_byte(value)
+        return buf
 
     def encoded_len(self):
         return 1
@@ -256,13 +262,28 @@ class ByteEncoder(ValueEncoder):
 
 class ShortEncoder(ValueEncoder):
     def _encode(self, value, buf):
-        if value<0:
-            value += 64*1024
-        buf[0] = unsigned_byte(int(value / 256))
-        buf[1] = value % 256
+        if value < 0:
+            value += 64 * 1024
+        buf[1] = unsigned_byte(int(value / 256))
+        buf[0] = value % 256
+        return buf
 
     def encoded_len(self):
         return 2
+
+
+class LongEncoder(ValueEncoder):
+    def _encode(self, value, buf):
+        if value < 0:
+            value += 1 << 32
+        value = int(value)
+        for x in range(0, 4):
+            buf[x] = value % 256
+            value = int(value / 256)
+        return buf
+
+    def encoded_len(self):
+        return 4
 
 
 class BufferDecoder(ValueDecoder):
@@ -298,8 +319,25 @@ class ReadWriteSystemObject(ReadWriteBaseObject):
 class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
     """ represents the unique ID for the controller that is stored on the controller.
         This is stored as a single byte buffer. """
+
     def encoded_len(self):
         return 1
+
+
+class SystemTime(ReadWriteSystemObject):
+    def encoded_len(self):
+        return 6
+
+    def _decode(self, buf):
+        time = LongDecoder()._decode(buf[0:4])
+        scale = ShortDecoder()._decode(buf[4:6])
+        return time, scale
+
+    def _encode(self, value, buf):
+        time, scale = value
+        buf[0:4] = LongEncoder().encode(time)
+        buf[4:6] = ShortEncoder().encode(scale)
+        return buf
 
 
 class ObjectDefinition:
@@ -345,6 +383,7 @@ class NonEmptyBlockDefinition(ObjectDefinition):
     def decode_definition(cls, data_block):
         return cls.encode_definition(data_block)
 
+
 class ReadWriteValue(ReadWriteBaseObject):
     @property
     def value(self):
@@ -369,17 +408,20 @@ class DynamicContainer(EmptyDefinition, UserObject, Container):
 
 class PersistentValueBase(BufferDecoder, BufferEncoder):
     def encoded_len(self):
-        return 0            # not known
+        return 0  # not known
 
 
 class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
     type_id = 5
 
+
 class ValueProfile:
     type_id = 6
 
+
 class LogicActuator:
     type_id = 7
+
 
 class BangBangController:
     type_id = 8
@@ -392,13 +434,14 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
 
     @classmethod
     def encode_definition(cls, arg):
-        if arg[1]<0:
+        if arg[1] < 0:
             raise ValueError("threshold < 0")
         return cls.shortEnc.encode(arg[0]) + cls.shortEnc.encode(arg[1])
 
     @classmethod
     def decode_definition(cls, data_block: bytes):
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
+
 
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
@@ -413,7 +456,7 @@ class BuiltInObjectTypes:
         return BuiltInObjectTypes._from_id.get(type_id, None)
 
     all_types = (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
-        PersistChangeValue)
+                 PersistChangeValue)
     _from_id = dict((x.type_id, x) for x in all_types)
 
 
@@ -431,8 +474,11 @@ class BaseController(Controller):
         self.connector = connector
         self.object_types = object_types
 
-    def system_id(self):
+    def system_id(self) -> SystemID:
         return SystemID(self, self._sysroot, 0)
+
+    def system_time(self) -> SystemTime:
+        return SystemTime(self, self._sysroot, 1)
 
     def initialize(self, fetch_id:callable):
         id_obj = self.system_id()
@@ -498,7 +544,7 @@ class BaseController(Controller):
             id_service.return_id(current_id)
         self._handle_error(self.p.reset,
                            1 if erase_eeprom else 0 or
-                           2 if hard_reset else 0)
+                                                  2 if hard_reset else 0)
 
     def read_system_value(self, obj: ReadableObject):
         data = self._fetch_data_block(self.p.read_system_value, obj.id_chain, obj.encoded_len())
@@ -521,7 +567,7 @@ class BaseController(Controller):
         """
         self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
 
-    def create_object(self, obj_class, args=None, container=None, slot=None)->InstantiableObject:
+    def create_object(self, obj_class, args=None, container=None, slot=None) -> InstantiableObject:
         """
         :param obj_class: The type of object to create
         :param args: The constructor arguments for the object. (See documentation for each object for details.)
@@ -537,7 +583,7 @@ class BaseController(Controller):
         slot = slot if slot is not None else self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
         dec = args and obj_class.decode_definition(data)
-        if dec!=args:
+        if dec != args:
             raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % args, data, dec)
         self._create_object(container, obj_class, slot, data)
         return obj_class(self, container, slot)
@@ -617,11 +663,13 @@ class BaseController(Controller):
         return ObjectReference(self, container, slot, obj_class, args)
 
     @property
-    def p(self)->BrewpiProtocolV030:    # short-hand and type hint
+    def p(self) -> BrewpiProtocolV030:  # short-hand and type hint
         return self.connector.protocol
+
 
 class CrossCompileController(BaseController):
     """ additional options only available on the cross-compile """
+
     def __init__(self, connector):
         super().__init__(connector, BuiltInObjectTypes)
 
