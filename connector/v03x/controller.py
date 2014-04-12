@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from connector import id_service
 from protocol.async import FutureResponse
-from protocol.v03x import BrewpiProtocolV030, unsigned_byte, signed_byte
+from protocol.v03x import ControllerProtocolV030, unsigned_byte, signed_byte
 
 __author__ = 'mat'
 
@@ -158,7 +158,7 @@ class RootContainer(ControllerObject, ContainerTraits):
         return tuple()
 
 
-class Profile(BaseControllerObject):
+class SystemProfile(BaseControllerObject):
     """ represents a profile. """
 
     def __init__(self, controller, profile_id):
@@ -394,77 +394,11 @@ class ReadWriteValue(ReadWriteBaseObject):
         self.write(v)
 
 
-# Now comes the application-specific objects.
-# Todo - it would be nice to separate these out, or make it extensible in python
-# taken steps in that direction.
-
-class CurrentTicks(EmptyDefinition, ReadableObject, UserObject, LongDecoder):
-    type_id = 3
-
-
-class DynamicContainer(EmptyDefinition, UserObject, Container):
-    type_id = 4
-
-
-class PersistentValueBase(BufferDecoder, BufferEncoder):
-    def encoded_len(self):
-        return 0  # not known
-
-
-class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
-    type_id = 5
-
-
-class ValueProfile:
-    type_id = 6
-
-
-class LogicActuator:
-    type_id = 7
-
-
-class BangBangController:
-    type_id = 8
-
-
-class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
-    type_id = 9
-    shortEnc = ShortEncoder()
-    shortDec = ShortDecoder()
-
-    @classmethod
-    def encode_definition(cls, arg):
-        if arg[1] < 0:
-            raise ValueError("threshold < 0")
-        return cls.shortEnc.encode(arg[0]) + cls.shortEnc.encode(arg[1])
-
-    @classmethod
-    def decode_definition(cls, data_block: bytes):
-        return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
-
-
-class BuiltInObjectTypes:
-    # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
-    # that are pre-instantiated may still need to be referred to by type. Will tackle this when needed.
-
-    @classmethod
-    def as_id(cls, obj: InstantiableObject):
-        return obj.type_id
-
-    @classmethod
-    def from_id(cls, type_id) -> InstantiableObject:
-        return BuiltInObjectTypes._from_id.get(type_id, None)
-
-    all_types = (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
-                 PersistChangeValue)
-    _from_id = dict((x.type_id, x) for x in all_types)
-
-
 class BaseController(Controller):
     """ provides the operations common to all controllers.
     """
 
-    def __init__(self, connector, object_types=BuiltInObjectTypes):
+    def __init__(self, connector, object_types):
         """
         :param connector:       The connector that provides the v0.3.x protocol over a conduit.
         :param object_types:    The factory describing the object types available in the controller.
@@ -511,12 +445,12 @@ class BaseController(Controller):
         profile_id = self._handle_error(self.connector.protocol.create_profile)
         return self.profile_for(profile_id)
 
-    def delete_profile(self, p: Profile):
+    def delete_profile(self, p: SystemProfile):
         self._handle_error(self.p.delete_profile, p.profile_id)
 
-    def activate_profile(self, p: Profile or None):
+    def activate_profile(self, p: SystemProfile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
-        self._handle_error(self.p.activate_profile, Profile.id_for(p))
+        self._handle_error(self.p.activate_profile, SystemProfile.id_for(p))
 
     def active_and_available_profiles(self):
         """
@@ -529,11 +463,11 @@ class BaseController(Controller):
         available = tuple([self.profile_for(x) for x in data[1:]])
         return activate, available
 
-    def is_active_profile(self, p: Profile):
+    def is_active_profile(self, p: SystemProfile):
         active = self.active_and_available_profiles()[0]
         return False if not active else active.profile_id == p.profile_id
 
-    def list_objects(self, p: Profile):
+    def list_objects(self, p: SystemProfile):
         future = self.p.list_profile(p.profile_id)
         data = BaseController.result_from(future)
         return tuple(self._materialize_object_descriptor(*d) for d in data)
@@ -588,12 +522,6 @@ class BaseController(Controller):
         self._create_object(container, obj_class, slot, data)
         return obj_class(self, container, slot)
 
-    def create_current_ticks(self, container=None, slot=None) -> CurrentTicks:
-        return self.create_object(CurrentTicks, None, container, slot)
-
-    def create_dynamic_container(self, container=None, slot=None) -> DynamicContainer:
-        return self.create_object(DynamicContainer, None, container, slot)
-
     @property
     def root_container(self):
         return self._root
@@ -626,7 +554,7 @@ class BaseController(Controller):
         return None if future is None else future.value(timeout)
 
     def profile_for(self, profile_id):
-        return Profile(self, profile_id) if profile_id >= 0 else None
+        return SystemProfile(self, profile_id) if profile_id >= 0 else None
 
     def container_for(self, id_chain):
         c = self.root_container
@@ -653,7 +581,7 @@ class BaseController(Controller):
         """
         # todo - the object descriptors should be in order so that we can dynamically build the container proxy
         container, slot = self._container_slot_from_id_chain(id_chain)
-        cls = BuiltInObjectTypes.from_id(obj_type)
+        cls = self.object_types.from_id(obj_type)
         args = cls.decode_definition(data) if data else None
         return ObjectReference(self, container, slot, cls, args)
 
@@ -663,17 +591,6 @@ class BaseController(Controller):
         return ObjectReference(self, container, slot, obj_class, args)
 
     @property
-    def p(self) -> BrewpiProtocolV030:  # short-hand and type hint
+    def p(self) -> ControllerProtocolV030:  # short-hand and type hint
         return self.connector.protocol
 
-
-class CrossCompileController(BaseController):
-    """ additional options only available on the cross-compile """
-
-    def __init__(self, connector):
-        super().__init__(connector, BuiltInObjectTypes)
-
-
-class ArduinoController(BaseController):
-    def __init__(self, connector):
-        super().__init__(connector, BuiltInObjectTypes)

@@ -1,9 +1,9 @@
 import os
 import sys
-from connector.integration_test.base_test import BaseControllerTestHelper, GeneralControllerTests
+from connector.integration_test.base_test import GeneralControllerTests
 from connector.integration_test.time_test import SystemTimeTest
 from connector.processconn import ProcessConnector
-from connector.v03x import CrossCompileController
+from connector.v03x.objects import CrossCompileController
 from test.config import apply_module
 import unittest
 

@@ -40,7 +40,7 @@ def brewpi_v03x_protocol_sniffer(line, conduit):
         info = VersionParser("{" + line[1:-1] + "}")
         if info.major == 0 and info.minor == 3:
             if info.revision == 0:
-                result = BrewpiProtocolV030(*build_chunked_hexencoded_conduit(conduit))
+                result = ControllerProtocolV030(*build_chunked_hexencoded_conduit(conduit))
     return result
 
 
@@ -596,7 +596,7 @@ def nop():
 
 
 
-class BrewpiProtocolV030(BaseAsyncProtocolHandler):
+class ControllerProtocolV030(BaseAsyncProtocolHandler):
     """ Implements the v2 hex-encoded binary protocol. """
 
     decoders = {
@@ -676,7 +676,7 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
     def build_bytearray(*args):
         """
         constructs a byte array from position arguments.
-        >>> BrewpiProtocolV030.build_bytearray(90, b"\x42\x43", 95)
+        >>> ControllerProtocolV030.build_bytearray(90, b"\x42\x43", 95)
         bytearray(b'ZBC_')
         """
         b = bytearray()
@@ -726,7 +726,7 @@ class BrewpiProtocolV030(BaseAsyncProtocolHandler):
 
     @staticmethod
     def _create_response_decoder(cmd_id):
-        decoder_type = BrewpiProtocolV030.decoders.get(cmd_id)
+        decoder_type = ControllerProtocolV030.decoders.get(cmd_id)
         if not decoder_type:
             raise ValueError("no decoder for cmd_id %d" % cmd_id)
         return decoder_type()

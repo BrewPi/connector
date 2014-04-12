@@ -26,3 +26,11 @@ class SystemTimeTest(BaseControllerTestHelper):
         time, scale = systime.read()
         assert_that(time, is_(original_time), "expected time to remain unchanged")
         assert_that(scale, is_(0), "expected scale to be 0")
+        systime.write((original_time+100, 0))
+        time, scale = systime.read()
+        assert_that(time, is_(original_time+100), "expected time +100")
+        assert_that(scale, is_(0), "expected scale to be 0")
+
+    def test_profile(self):
+        pass
+

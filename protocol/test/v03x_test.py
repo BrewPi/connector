@@ -5,7 +5,7 @@ from io import BufferedReader, BufferedWriter, BytesIO
 from hamcrest import assert_that, is_, equal_to, raises, calling
 
 from conduit.base import DefaultConduit
-from protocol.v03x import HexToBinaryInputStream, ChunkedHexTextInputStream, BinaryToHexOutputStream, BrewpiProtocolV030, \
+from protocol.v03x import HexToBinaryInputStream, ChunkedHexTextInputStream, BinaryToHexOutputStream, ControllerProtocolV030, \
     build_chunked_hexencoded_conduit
 
 
@@ -235,7 +235,7 @@ class TextHexStreamTestCase(unittest.TestCase):
 class BrewpiV030ProtocolSendRequestTestCase(unittest.TestCase):
     def setUp(self):
         self.conduit = DefaultConduit(BytesIO(), BytesIO())
-        self.sut = BrewpiProtocolV030(self.conduit, lambda: None)
+        self.sut = ControllerProtocolV030(self.conduit, lambda: None)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
@@ -278,7 +278,7 @@ class BrewpiV030ProtocolDecodeResponseTestCase(unittest.TestCase):
         self.input_buffer = RWCacheBuffer()
         self.output_buffer = RWCacheBuffer()
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
-        self.sut = BrewpiProtocolV030(self.conduit)
+        self.sut = ControllerProtocolV030(self.conduit)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
@@ -318,7 +318,7 @@ class BrewpiV030ProtocolHexEncodingTestCase(unittest.TestCase):
         # this represents the far end of the pipe - input/output bytes sent as hex encoded binary
         self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
         text = build_chunked_hexencoded_conduit(self.conduit)
-        self.sut = BrewpiProtocolV030(*text)
+        self.sut = ControllerProtocolV030(*text)
 
     def tearDown(self):
         self.input_buffer.close()

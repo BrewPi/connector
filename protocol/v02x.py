@@ -13,9 +13,9 @@ def brewpi_v02x_protocol_sniffer(line, conduit):
         info = VersionParser(line[2:])
         if info.major == 0 and info.minor == 2:
             if info.revision == 3:
-                return BrewpiProtocolV023(conduit)
+                return ControllerProtocolV023(conduit)
     elif len(line) > 1 and line[1] == ':':  # hack for old versions
-        return BrewpiProtocolV023(conduit)
+        return ControllerProtocolV023(conduit)
     return result
 
 
@@ -157,7 +157,7 @@ class MessageResponse(Response):
         return self._value
 
 
-class BrewpiProtocolV023(BaseAsyncProtocolHandler):
+class ControllerProtocolV023(BaseAsyncProtocolHandler):
     JSONFormat.instance = JSONFormat()
 
     requests = defs_as_dict(

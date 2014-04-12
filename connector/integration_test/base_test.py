@@ -3,8 +3,9 @@ from time import sleep
 from hamcrest import assert_that, equal_to, is_, greater_than, less_than, calling, raises, is_not, all_of, any_of, \
     has_length
 from connector import id_service
-from connector.v03x import BaseController, FailedOperationError, Profile, DynamicContainer, RootContainer, Container, \
-    CurrentTicks, PersistentValue, PersistChangeValue
+from connector.v03x.controller import *
+from connector.v03x.objects import PersistentValue, PersistChangeValue, DynamicContainer
+from connector.v03x.time import CurrentTicks
 from test.config import apply_module
 from abc import abstractmethod, ABCMeta
 
@@ -96,8 +97,8 @@ class BaseControllerTestHelper():
 
     def assert_active_available(self, expected_active:int, expected_available):
         aa = self.c.active_and_available_profiles()
-        active = Profile.id_for(aa[0])
-        available = [Profile.id_for(p) for p in aa[1]]
+        active = SystemProfile.id_for(aa[0])
+        available = [SystemProfile.id_for(p) for p in aa[1]]
         assert_that(active, is_(equal_to(expected_active)), "active profile")
         assert_that(tuple(available), is_(equal_to(tuple(expected_available))), "available profiles")
 
@@ -128,7 +129,7 @@ class BaseControllerTestHelper():
         self.discard_connection()
         self.create_connection()
 
-    def setup_profile(self) -> Profile:
+    def setup_profile(self) -> SystemProfile:
         """ create a profile and activate it. Verifies that it is active. """
         profile = self.c.create_profile()
         profile.activate()
@@ -166,7 +167,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
                 when creating the maximum number of profiles, then each profile should have a distinct profile id
                 when another profile is created, then an exception is thrown
         """
-        current_id = Profile.id_for(self.c.active_and_available_profiles()[0])
+        current_id = SystemProfile.id_for(self.c.active_and_available_profiles()[0])
         profiles = []
         for x in profile_id_range():
             p = self.c.create_profile()

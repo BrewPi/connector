@@ -4,7 +4,7 @@ from hamcrest import assert_that, equal_to, is_, not_none
 
 from conduit.base import DefaultConduit
 from protocol.test.v03x_test import RWCacheBuffer
-from protocol.v02x import BrewpiProtocolV023
+from protocol.v02x import ControllerProtocolV023
 import unittest
 
 
@@ -23,7 +23,7 @@ class BrewpiProtocolV023UnitTest(unittest.TestCase):
         self.send = RWCacheBuffer()
         self.receive = RWCacheBuffer()
         self.conduit = DefaultConduit(self.receive.reader, self.send.writer)
-        self.protocol = BrewpiProtocolV023(self.conduit)
+        self.protocol = ControllerProtocolV023(self.conduit)
 
     def test_read_write_buffer(self):
         buffer = self.receive
