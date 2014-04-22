@@ -20,7 +20,16 @@ class CommonEqualityMixin(object):
 
     def __eq__(self, other):
         return hasattr(other, '__dict__') and isinstance(other, self.__class__) \
-            and self.__dict__ == other.__dict__
+            and self._dicts_equal(other)
+
+    def __str__(self):
+        return super().__str__()+':'+str(self.__dict__)
+
+
+    def _dicts_equal(self, other):
+        d1 = self.__dict__
+        d2 = other.__dict__
+        return d1==d2
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -234,10 +243,41 @@ class LongDecoder(ValueDecoder):
     def encoded_len(self):
         return 4
 
+class UnsignedShortDecoder(ValueDecoder):
+    def _decode(self, buf):
+        return ((buf[1]) * 256) + buf[0]
+
+    def encoded_len(self):
+        return 2
+
+
+class ShortEncoder(ValueEncoder):
+    def _encode(self, value, buf):
+        if value < 0:
+            value += 64 * 1024
+        buf[1] = unsigned_byte(int(value / 256))
+        buf[0] = value % 256
+        return buf
+
+    def encoded_len(self):
+        return 2
+
 
 class ShortDecoder(ValueDecoder):
     def _decode(self, buf):
         return (signed_byte(buf[1]) * 256) + buf[0]
+
+    def encoded_len(self):
+        return 2
+
+
+class ShortEncoder(ValueEncoder):
+    def _encode(self, value, buf):
+        if value < 0:
+            value += 64 * 1024
+        buf[1] = unsigned_byte(int(value / 256))
+        buf[0] = value % 256
+        return buf
 
     def encoded_len(self):
         return 2
@@ -258,19 +298,6 @@ class ByteEncoder(ValueEncoder):
 
     def encoded_len(self):
         return 1
-
-
-class ShortEncoder(ValueEncoder):
-    def _encode(self, value, buf):
-        if value < 0:
-            value += 64 * 1024
-        buf[1] = unsigned_byte(int(value / 256))
-        buf[0] = value % 256
-        return buf
-
-    def encoded_len(self):
-        return 2
-
 
 class LongEncoder(ValueEncoder):
     def _encode(self, value, buf):
@@ -518,7 +545,7 @@ class BaseController(Controller):
         data = (args is not None and obj_class.encode_definition(args)) or None
         dec = args and obj_class.decode_definition(data)
         if dec != args:
-            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % args, data, dec)
+            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
         self._create_object(container, obj_class, slot, data)
         return obj_class(self, container, slot)
 

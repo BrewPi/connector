@@ -1,5 +1,5 @@
 from hamcrest import assert_that, equal_to, is_
-from connector.v03x import Controller, Container, RootContainer
+from connector.v03x.controller import Controller, Container, RootContainer
 
 __author__ = 'mat'
 

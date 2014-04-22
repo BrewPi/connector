@@ -7,6 +7,19 @@ import unittest
 
 
 class ValueProfileStateTestCase(unittest.TestCase):
+    def test_new_instances_equal(self):
+        v1 = ValueProfileState()
+        v2 = ValueProfileState()
+        assert_that(v1, is_(equal_to(v2)))
+
+    def test_new_instance_decoded_equal(self):
+        v1 = ValueProfileState()
+        enc = v1.encode()
+        v2 = ValueProfileState()
+        v2.decode(enc)
+        assert_that(v1, is_(equal_to(v2)))
+
+
     def test_encode_round_trip(self):
         p = ValueProfileState()
         p.current_time_offset = 65320      # 16 bits unsigned

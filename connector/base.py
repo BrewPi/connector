@@ -181,4 +181,3 @@ class AbstractConnector(Connector):
         if not self.connected:
             raise ConnectionNotConnectedError
 
-

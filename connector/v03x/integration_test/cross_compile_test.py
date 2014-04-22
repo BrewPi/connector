@@ -1,17 +1,19 @@
 import os
 import sys
-from connector.integration_test.base_test import GeneralControllerTests
-from connector.integration_test.time_test import SystemTimeTest
+import unittest
+
+from connector.v03x.integration_test.base_test import GeneralControllerTests
+from connector.v03x.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from connector.processconn import ProcessConnector
 from connector.v03x.objects import CrossCompileController
 from test.config import apply_module
-import unittest
+
 
 __author__ = 'mat'
 
 cross_compile_exe = None
 
-apply_module(sys.modules[__name__], 2)
+apply_module(sys.modules[__name__], 3)
 
 
 @unittest.skipUnless(cross_compile_exe, "cross-compile exe not defined")
@@ -32,5 +34,5 @@ class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests, uni
     pass
 
 
-class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, unittest.TestCase):
+class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, ValueProfileTest, unittest.TestCase):
     pass

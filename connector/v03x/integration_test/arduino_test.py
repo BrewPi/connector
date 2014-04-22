@@ -6,7 +6,7 @@ import unittest
 from hamcrest import assert_that, is_, starts_with, equal_to
 from serial import Serial
 
-from connector.integration_test.base_test import BaseControllerTestHelper
+from connector.v03x.integration_test.base_test import BaseControllerTestHelper
 from connector.serialconn import SerialConnector
 from connector.v03x import ArduinoController
 from test.config import apply_module

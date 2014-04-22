@@ -1,9 +1,12 @@
-from time import sleep
-from hamcrest import greater_than, is_, assert_that, less_than
-from connector.integration_test.base_test import BaseControllerTestHelper
-
 __author__ = 'mat'
 
+
+from time import sleep
+
+from hamcrest import greater_than, is_, assert_that, less_than
+
+from connector.v03x.integration_test.base_test import BaseControllerTestHelper
+from connector.v03x.time import ValueProfile, ValueProfileState
 
 class SystemTimeTest(BaseControllerTestHelper):
     """ Tests the system time component. """
@@ -31,6 +34,10 @@ class SystemTimeTest(BaseControllerTestHelper):
         assert_that(time, is_(original_time+100), "expected time +100")
         assert_that(scale, is_(0), "expected scale to be 0")
 
-    def test_profile(self):
-        pass
+
+class ValueProfileTest(BaseControllerTestHelper):
+    def test_constant_profile(self):
+        sysProfile = self.setup_profile()
+        state = ValueProfileState()
+        valueProfile = self.c.create_object(ValueProfile, state)
 

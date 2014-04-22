@@ -1,7 +1,7 @@
 import operator
 
 from connector.v03x.controller import EmptyDefinition, ReadableObject, UserObject, LongDecoder, ShortDecoder, \
-    ShortEncoder
+    ShortEncoder, ObjectDefinition, InstantiableObject, CommonEqualityMixin, UnsignedShortDecoder
 
 __author__ = 'mat'
 
@@ -18,17 +18,15 @@ class ValueProfileInterpolation:
     amoother = 3
 
 
-class TimeValuePoint():
-    time = 0
-    value = 0
-
-    def __init__(self, time, value):
+class TimeValuePoint(CommonEqualityMixin):
+    def __init__(self, time=0, value=0):
         self.time = time
         self.value = value
 
     def decode(self, buf):
-        self.time = ShortDecoder().decode(buf[0:2])
+        self.time = UnsignedShortDecoder().decode(buf[0:2])
         self.value = ShortDecoder().decode(buf[2:4])
+        return self
 
     def encode(self):
         buf = bytearray(4)
@@ -41,33 +39,46 @@ class TimeValuePoint():
         return operator.attrgetter('time')
 
 
-class ValueProfileState():
+class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
     """ Encapsulates the configuration state for a value profile on the controller"""
 
-    current_step = 0
-    """ The current step index in the profile """
-
-    current_time_offset = 0
-    """ the current time offset in seconds. Can be fractional. """
-
-    running = False
-    """ When true, the profile continues updating. When false, the profile holds the current value. """
-
-    interpolation = ValueProfileInterpolation.none
-    """ How values are interpolated between defined points for increased resolution and smooth transitions. """
-
-    steps = None
-    """ The steps of the profile, as a sequence of TimeValuePoint instances. There is no implied order to this list. """
-
     def __init__(self):
+        """ The current step index in the profile """
+        self.current_step = 0
+        """ the current time offset in seconds. Can be fractional. """
+        self.current_time_offset = 0
+        """ When true, the profile continues updating. When false, the profile holds the current value. """
+        self.running = False
+        """ How values are interpolated between defined points for increased resolution and smooth transitions. """
+        self.interpolation = ValueProfileInterpolation.none
+        """ The steps of the profile, as a sequence of TimeValuePoint instances.
+            There is no implied order to this list. """
         self.steps = []
+
+    def __str__(self):
+        return super().__str__()+":"+str(self.__dict__)
+
+
+    @classmethod
+    def decode_definition(cls, data_block):
+        result = ValueProfileState()
+        result.decode(data_block)
+        return result
+
+    @classmethod
+    def encode_definition(cls, arg):
+        return arg.encode()
 
     def decode(self, buf):
         state = buf[0]
         self.current_step = state >> 4 & 0xF
         self.running = state & 4 != 0
         self.interpolation = state & 3
-        self.current_time_offset = ShortDecoder().decode(buf[1:3])
+        self.current_time_offset = UnsignedShortDecoder().decode(buf[1:3])
+        steps = []
+        for i in range(3, len(buf), 4):
+            steps.append(TimeValuePoint().decode(buf[i:i+4]))
+        self.steps = steps
 
     def encode(self):
         buf = bytearray(self.encoded_len())
@@ -84,7 +95,5 @@ class ValueProfileState():
         return 1 + 2 + len(self.steps)*4
 
 
-
-class ValueProfile(ValueProfileState):
+class ValueProfile(ValueProfileState, UserObject):
     type_id = 6
-
