@@ -1,7 +1,8 @@
 import operator
 
 from connector.v03x.controller import EmptyDefinition, ReadableObject, UserObject, LongDecoder, ShortDecoder, \
-    ShortEncoder, ObjectDefinition, InstantiableObject, CommonEqualityMixin, UnsignedShortDecoder
+    ShortEncoder, ObjectDefinition, InstantiableObject, CommonEqualityMixin, UnsignedShortDecoder, ContainedObject, \
+    ReadWriteUserObject
 
 __author__ = 'mat'
 
@@ -95,5 +96,19 @@ class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
         return 1 + 2 + len(self.steps)*4
 
 
-class ValueProfile(ValueProfileState, UserObject):
+class ValueProfile(ReadWriteUserObject):
     type_id = 6
+
+    @classmethod
+    def encode_definition(cls, args) -> bytes:
+        return ValueProfileState.encode_definition(args)
+
+    @classmethod
+    def decode_definition(cls, data_block: bytes):
+        return ValueProfileState.decode_definition(data_block)
+
+
+
+
+
+

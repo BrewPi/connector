@@ -55,7 +55,7 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
         assert_that(c1.id_chain_for(10), is_(equal_to((5, 10))))
 
 
-class BaseControllerTestHelper():
+class BaseControllerTestHelper(unittest.TestCase):
     connector = None
     controller = None
     initialize_id = True

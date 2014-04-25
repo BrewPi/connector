@@ -1,3 +1,4 @@
+
 __author__ = 'mat'
 
 
@@ -37,7 +38,8 @@ class SystemTimeTest(BaseControllerTestHelper):
 
 class ValueProfileTest(BaseControllerTestHelper):
     def test_constant_profile(self):
-        sysProfile = self.setup_profile()
+        p = self.setup_profile()
         state = ValueProfileState()
         valueProfile = self.c.create_object(ValueProfile, state)
+
 
