@@ -31,6 +31,9 @@ class BaseCrossCompileTestCase:
 
 
 class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests, unittest.TestCase):
+    def test_reset_eeprom(self):
+        super().test_reset_eeprom()
+
     pass
 
 

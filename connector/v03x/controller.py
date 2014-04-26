@@ -14,6 +14,8 @@ timeout = 10  # long enough to allow debugging, but not infinite so that build p
 class FailedOperationError(Exception):
     pass
 
+class ProfileNotActiveError(FailedOperationError):
+    pass
 
 class CommonEqualityMixin(object):
     """ define a simple equals implementation for these value objects. """
@@ -42,7 +44,15 @@ class BaseControllerObject(CommonEqualityMixin):
     state from the external controller.)"""
 
     def __init__(self, controller):
-        self.controller = controller
+        self._controller = controller
+
+    @property
+    def controller(self):
+        return self._controller
+
+    @controller.setter
+    def controller(self, controller):
+        self._controller = controller
 
 
 class ObjectReference(BaseControllerObject):
@@ -57,10 +67,9 @@ class ObjectReference(BaseControllerObject):
         self.obj_class = obj_class
         self.args = args
 
-    def resolve(self):
-        """ resolves this reference to the actual proxy object used to interact with the controller.
-        todo - deferred until I know we really need this object oriented API. """
-        pass
+    @property
+    def id_chain(self):
+        return self.container.id_chain_for(self.slot)
 
     def __str__(self):
         return "%s(%r)" % (self.__class__, self.__dict__)
@@ -168,11 +177,12 @@ class RootContainer(ControllerObject, ContainerTraits):
 
 
 class SystemProfile(BaseControllerObject):
-    """ represents a profile. """
-
+    """ represents a system profile - storage for a root container and contained objects. """
     def __init__(self, controller, profile_id):
         super().__init__(controller)
         self.profile_id = profile_id
+        self._objects = dict()  # map of object id to object. These objects are proxy objects to
+                                # objects in the controller
 
     def activate(self):
         self.controller.activate_profile(self)
@@ -186,13 +196,50 @@ class SystemProfile(BaseControllerObject):
         self.controller.delete_profile(self)
 
     @property
+    def root(self):
+        self._check_active()
+        return self._objects[tuple()]
+
+    def _check_active(self):
+        if not self.is_active:
+            raise ProfileNotActiveError()
+
+    @property
     def is_active(self):
         return self.controller.is_active_profile(self)
+
+    def object_at(self, id_chain):
+        obj = self._objects.get(tuple(id_chain))
+        if obj is None:
+            raise ValueError("no such object for id_chain %s " % id_chain)
+        return obj
 
     @classmethod
     def id_for(cls, p):
         return p.profile_id if p else -1
 
+    def _deactivate(self):
+        """  This profile is no longer active, so detach all objects from the controller to prevent any unintended
+             access.
+        """
+        for x in self._objects.values():
+            x.controller = None
+        self._objects.clear()
+
+    def _activate(self):
+        """
+        Called by the controller to activate this profile. The profile instantiates the stub root container
+        and the other stub objects currently in the profile.
+        """
+        self._add([], RootContainer(self.controller))
+        for ref in self.controller.list_objects(self):
+            self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain)
+
+    def _add(self, id_chain, obj):
+        self._objects[tuple(id_chain)] = obj
+
+    def _remove(self, id_chain):
+        self._objects.pop(id_chain, None)
 
 class ValueDecoder:
     @abstractmethod
@@ -271,18 +318,6 @@ class ShortDecoder(ValueDecoder):
         return 2
 
 
-class ShortEncoder(ValueEncoder):
-    def _encode(self, value, buf):
-        if value < 0:
-            value += 64 * 1024
-        buf[1] = unsigned_byte(int(value / 256))
-        buf[0] = value % 256
-        return buf
-
-    def encoded_len(self):
-        return 2
-
-
 class ByteDecoder(ValueDecoder):
     def _decode(self, buf):
         return signed_byte(buf[0])
@@ -328,11 +363,12 @@ class ReadWriteBaseObject(ReadableObject, WritableObject):
 
 
 class ReadWriteUserObject(ReadWriteBaseObject, UserObject):
-    def read(self):
-        return self.controller.read_value(self)
-
-    def write(self, value):
-        self.controller.write_value(self, value)
+    pass
+    # def read(self):
+    #     return self.controller.read_value(self)
+    #
+    # def write(self, value):
+    #     self.controller.write_value(self, value)
 
 
 class ReadWriteSystemObject(ReadWriteBaseObject):
@@ -421,6 +457,13 @@ class ReadWriteValue(ReadWriteBaseObject):
         self.write(v)
 
 
+def fetch_dict(d:dict, k, generator):
+    existing = d.get(k, None)
+    if existing is None:
+        d[k] = existing = generator(k)
+    return existing
+
+
 class BaseController(Controller):
     """ provides the operations common to all controllers.
     """
@@ -430,10 +473,11 @@ class BaseController(Controller):
         :param connector:       The connector that provides the v0.3.x protocol over a conduit.
         :param object_types:    The factory describing the object types available in the controller.
         """
-        self._root = RootContainer(self)
         self._sysroot = RootContainer(self)
         self.connector = connector
         self.object_types = object_types
+        self.profiles = dict()
+        self.current_profile = None
 
     def system_id(self) -> SystemID:
         return SystemID(self, self._sysroot, 0)
@@ -442,15 +486,17 @@ class BaseController(Controller):
         return SystemTime(self, self._sysroot, 1)
 
     def initialize(self, fetch_id:callable):
+        self.profiles = dict()
+        self.current_profile = None
         id_obj = self.system_id()
         current_id = id_obj.read()
         if int(current_id[0]) == 0xFF:
             current_id = fetch_id()
-        id_obj.write(current_id)
+            id_obj.write(current_id)
+        self._set_current_profile(self.active_and_available_profiles()[0])
         return current_id
 
     def full_erase(self):
-        # need profile enumeration - for now, just assume 4 profiles
         available = self.active_and_available_profiles()
         for p in available[1]:
             self.delete_profile(p)
@@ -474,10 +520,14 @@ class BaseController(Controller):
 
     def delete_profile(self, p: SystemProfile):
         self._handle_error(self.p.delete_profile, p.profile_id)
+        if self.current_profile == p:
+            self._set_current_profile(None)
+        self.profiles.pop(p.profile_id, None)   # profile may have already been deleted
 
     def activate_profile(self, p: SystemProfile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
         self._handle_error(self.p.activate_profile, SystemProfile.id_for(p))
+        self._set_current_profile(p)
 
     def active_and_available_profiles(self):
         """
@@ -486,7 +536,7 @@ class BaseController(Controller):
         """
         future = self.p.list_profiles()
         data = BaseController.result_from(future)
-        activate = self.profile_for(data[0])
+        activate = self.profile_for(data[0], True)
         available = tuple([self.profile_for(x) for x in data[1:]])
         return activate, available
 
@@ -497,15 +547,17 @@ class BaseController(Controller):
     def list_objects(self, p: SystemProfile):
         future = self.p.list_profile(p.profile_id)
         data = BaseController.result_from(future)
-        return tuple(self._materialize_object_descriptor(*d) for d in data)
+        for d in data:
+            yield self._materialize_object_descriptor(*d)
 
     def reset(self, erase_eeprom=False, hard_reset=True):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
             current_id = self.system_id().read()
             id_service.return_id(current_id)
-        self._handle_error(self.p.reset,
-                           1 if erase_eeprom else 0 or
-                                                  2 if hard_reset else 0)
+        self._handle_error(self.p.reset, 1 if erase_eeprom else 0 or 2 if hard_reset else 0)
+        if erase_eeprom:
+            self.profiles.clear()
+            self.current_profile = None
 
     def read_system_value(self, obj: ReadableObject):
         data = self._fetch_data_block(self.p.read_system_value, obj.id_chain, obj.encoded_len())
@@ -527,6 +579,7 @@ class BaseController(Controller):
             fail for a non-existent object.
         """
         self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
+        self.current_profile._remove(id_chain)
 
     def create_object(self, obj_class, args=None, container=None, slot=None) -> InstantiableObject:
         """
@@ -546,17 +599,20 @@ class BaseController(Controller):
         dec = args and obj_class.decode_definition(data)
         if dec != args:
             raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
-        self._create_object(container, obj_class, slot, data)
-        return obj_class(self, container, slot)
+        return self._create_object(container, obj_class, slot, data)
 
-    @property
-    def root_container(self):
-        return self._root
-
-    def _create_object(self, container: Container, obj_class: InstantiableObject, slot, data: bytes):
+    def _create_object(self, container: Container, obj_class, slot, data: bytes):
         data = data or []
         id_chain = container.id_chain_for(slot)
         self._handle_error(self.connector.protocol.create_object, id_chain, obj_class.type_id, data)
+        obj = self._instantiate_stub(obj_class, container, id_chain)
+        return obj
+
+    def _instantiate_stub(self, obj_class, container, id_chain):
+        """ Creates the stub object for an existing object in the controller."""
+        obj = obj_class(self, container, id_chain[-1])
+        self.current_profile._add(id_chain, obj)
+        return obj
 
     @staticmethod
     def _handle_error(fn, *args, allow_fail=False):
@@ -574,20 +630,31 @@ class BaseController(Controller):
             raise FailedOperationError("no data")
         return data
 
+    @property
+    def root_container(self):
+        p = self._check_current_profile()
+        return p.root
+
     @staticmethod
     def result_from(future: FutureResponse):
         # todo - on timeout, unregister the future from the async protocol handler to avoid
         # a memory leak
         return None if future is None else future.value(timeout)
 
-    def profile_for(self, profile_id):
-        return SystemProfile(self, profile_id) if profile_id >= 0 else None
+    def profile_for(self, profile_id, may_be_negative=False):
+        if profile_id < 0:
+            if may_be_negative:
+                return None
+            raise ValueError("negative profile id")
+        return fetch_dict(self.profiles, profile_id, lambda x: SystemProfile(self, x))
 
-    def container_for(self, id_chain):
-        c = self.root_container
-        for x in id_chain:
-            c = Container(self, c, x)
-        return c
+    def container_at(self, id_chain):
+        o = self.object_at(id_chain)
+        return o
+
+    def object_at(self, id_chain):
+        p = self._check_current_profile()
+        return p.object_at(id_chain)
 
     @staticmethod
     def container_chain_and_id(id_chain):
@@ -599,11 +666,11 @@ class BaseController(Controller):
 
     def _container_slot_from_id_chain(self, id_chain):
         chain_prefix, slot = self.container_chain_and_id(id_chain)
-        container = self.container_for(chain_prefix)
+        container = self.container_at(chain_prefix)
         return container, slot
 
     def _materialize_object_descriptor(self, id_chain, obj_type, data):
-        """ converts the obj_type (int) to th eobject class, converts the id to a container+slot reference, and
+        """ converts the obj_type (int) to the object class, converts the id to a container+slot reference, and
             decodes the data.
         """
         # todo - the object descriptors should be in order so that we can dynamically build the container proxy
@@ -620,4 +687,19 @@ class BaseController(Controller):
     @property
     def p(self) -> ControllerProtocolV030:  # short-hand and type hint
         return self.connector.protocol
+
+    def _check_current_profile(self)->SystemProfile:
+        if not self.current_profile:
+            raise FailedOperationError("no current profile")
+        return self.current_profile
+
+    # noinspection PyProtectedMember
+    def _set_current_profile(self, profile: SystemProfile):
+        if self.current_profile:
+            self.current_profile._deactivate()
+        self.current_profile = None
+        if profile:
+            self.current_profile = profile
+            profile._activate()
+
 

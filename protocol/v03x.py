@@ -68,6 +68,17 @@ def encode_id(idchain) -> bytearray:
         result[l - 1] = idchain[l - 1]
     return result
 
+def decode_id(buf) -> list():
+    """
+    :param buf: The id_chain as the on-wire format.
+    :return: A list of integers corresponding to the id chain
+
+    >>> decode_id(bytearray([0x81, 0x82, 3]))
+    [1, 2, 3]
+    """
+    return [ (x & 0x7F) for x in buf ]
+
+
 
 class ByteArrayRequest(Request):
     """ represents a request as an array or bytes. The byte array defines the key for the reuqest, since responses

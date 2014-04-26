@@ -1,5 +1,6 @@
 from connector.v03x.controller import *
 from connector.v03x.time import CurrentTicks, ValueProfile
+from protocol.v03x import decode_id
 
 __author__ = 'mat'
 
@@ -45,6 +46,16 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
 
 
+class IndirectValue(ReadWriteUserObject):
+    type_id = 0x0D
+
+    def encode_definition(self, value:ControllerObject):
+        return value.id_chain()
+
+    def decode_definition(self, buf):
+        id_chain = decode_id(buf)
+        return self.controller.object_at(id_chain)
+
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
     # that are pre-instantiated may still need to be referred to by type. Will tackle this when needed.
@@ -58,7 +69,7 @@ class BuiltInObjectTypes:
         return BuiltInObjectTypes._from_id.get(type_id, None)
 
     all_types = (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
-                 PersistChangeValue)
+                 PersistChangeValue, IndirectValue)
     _from_id = dict((x.type_id, x) for x in all_types)
 
 

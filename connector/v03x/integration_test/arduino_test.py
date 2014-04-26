@@ -8,7 +8,7 @@ from serial import Serial
 
 from connector.v03x.integration_test.base_test import BaseControllerTestHelper
 from connector.serialconn import SerialConnector
-from connector.v03x import ArduinoController
+from connector.v03x.objects import ArduinoController
 from test.config import apply_module
 
 
