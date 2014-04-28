@@ -61,7 +61,7 @@ class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
 
 
     @classmethod
-    def decode_definition(cls, data_block):
+    def decode_definition(cls, data_block, controller):
         result = ValueProfileState()
         result.decode(data_block)
         return result

@@ -3,6 +3,7 @@ import sys
 import unittest
 
 from connector.v03x.integration_test.base_test import GeneralControllerTests
+from connector.v03x.integration_test.indirect_value_test import IndirectValueTest
 from connector.v03x.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from connector.processconn import ProcessConnector
 from connector.v03x.objects import CrossCompileController
@@ -30,12 +31,12 @@ class BaseCrossCompileTestCase:
         return CrossCompileController(self.connector)
 
 
-class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests, unittest.TestCase):
-    def test_reset_eeprom(self):
-        super().test_reset_eeprom()
-
+class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests):
     pass
 
 
-class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, ValueProfileTest, unittest.TestCase):
+class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, ValueProfileTest):
+    pass
+
+class CrossCompileIndirectValueTestCase(BaseCrossCompileTestCase, IndirectValueTest):
     pass

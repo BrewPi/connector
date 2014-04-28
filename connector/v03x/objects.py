@@ -46,15 +46,27 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
 
 
+
 class IndirectValue(ReadWriteUserObject):
     type_id = 0x0D
 
-    def encode_definition(self, value:ControllerObject):
-        return value.id_chain()
+    @classmethod
+    def encode_definition(cls, value:ControllerObject):
+        return value.id_chain
 
-    def decode_definition(self, buf):
+    @classmethod
+    def decode_definition(cls, buf, controller):
         id_chain = decode_id(buf)
-        return self.controller.object_at(id_chain)
+        return controller.object_at(id_chain)
+
+    def encoded_len(self):
+        return self.definition.encoded_len()
+
+    def decode(self, buf):
+        return self.definition.decode(buf)
+
+    def encode(self, value):
+        return self.definition.encode(value)
 
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects

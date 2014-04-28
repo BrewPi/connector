@@ -101,9 +101,14 @@ class TypedObject:
 
 
 class InstantiableObject(ControllerObject, TypedObject):
+
+    def __init__(self, controller):
+        super().__init__(controller)
+        self.definition = None
+
     @classmethod
     @abstractmethod
-    def decode_definition(cls, data_block: bytes):
+    def decode_definition(cls, data_block: bytes, controller):
         """ decodes the object's definition data block from the controller to python objects """
         raise NotImplementedError
 
@@ -127,7 +132,6 @@ class ContainedObject(ControllerObject):
     """ An object in a container. Contained objects have a slot that is the id relative to the container
         the object is in. The full id_chain is the container's id plus the object's slot in the container.
     """
-
     def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
         # todo - push the profile up to the root container and store controller in that.
         """
@@ -149,7 +153,9 @@ class ContainedObject(ControllerObject):
 
 
 class UserObject(InstantiableObject, ContainedObject):
-    pass
+    def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
+        super(InstantiableObject, self).__init__(controller, container, slot)
+        super(ContainedObject, self).__init__(controller)
 
 
 class Container(ContainedObject, ContainerTraits):
@@ -233,13 +239,14 @@ class SystemProfile(BaseControllerObject):
         """
         self._add([], RootContainer(self.controller))
         for ref in self.controller.list_objects(self):
-            self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain)
+            self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
 
     def _add(self, id_chain, obj):
         self._objects[tuple(id_chain)] = obj
 
     def _remove(self, id_chain):
         self._objects.pop(id_chain, None)
+
 
 class ValueDecoder:
     @abstractmethod
@@ -406,7 +413,7 @@ class SystemTime(ReadWriteSystemObject):
 class ObjectDefinition:
     @classmethod
     @abstractmethod
-    def decode_definition(cls, data_block):
+    def decode_definition(cls, data_block, controller):
         raise NotImplementedError
 
     @classmethod
@@ -443,7 +450,7 @@ class NonEmptyBlockDefinition(ObjectDefinition):
         return arg
 
     @classmethod
-    def decode_definition(cls, data_block):
+    def decode_definition(cls, data_block, controller):
         return cls.encode_definition(data_block)
 
 
@@ -596,21 +603,22 @@ class BaseController(Controller):
         slot is not None and self._delete_object_at(container.id_chain_for(slot), optional=True)
         slot = slot if slot is not None else self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
-        dec = args and obj_class.decode_definition(data)
+        dec = args and obj_class.decode_definition(data, controller=self)
         if dec != args:
             raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
-        return self._create_object(container, obj_class, slot, data)
+        return self._create_object(container, obj_class, slot, data, args)
 
-    def _create_object(self, container: Container, obj_class, slot, data: bytes):
+    def _create_object(self, container: Container, obj_class, slot, data: bytes, args):
         data = data or []
         id_chain = container.id_chain_for(slot)
         self._handle_error(self.connector.protocol.create_object, id_chain, obj_class.type_id, data)
-        obj = self._instantiate_stub(obj_class, container, id_chain)
+        obj = self._instantiate_stub(obj_class, container, id_chain, args)
         return obj
 
-    def _instantiate_stub(self, obj_class, container, id_chain):
+    def _instantiate_stub(self, obj_class, container, id_chain, args):
         """ Creates the stub object for an existing object in the controller."""
         obj = obj_class(self, container, id_chain[-1])
+        obj.definition = args
         self.current_profile._add(id_chain, obj)
         return obj
 
@@ -676,7 +684,7 @@ class BaseController(Controller):
         # todo - the object descriptors should be in order so that we can dynamically build the container proxy
         container, slot = self._container_slot_from_id_chain(id_chain)
         cls = self.object_types.from_id(obj_type)
-        args = cls.decode_definition(data) if data else None
+        args = cls.decode_definition(data, controller=self) if data else None
         return ObjectReference(self, container, slot, cls, args)
 
     def ref(self, obj_class, args, id_chain):
