@@ -2,6 +2,7 @@ from abc import abstractmethod
 from connector import id_service
 from protocol.async import FutureResponse
 from protocol.v03x import ControllerProtocolV030, unsigned_byte, signed_byte
+from support.events import EventHook
 
 __author__ = 'mat'
 
@@ -37,13 +38,15 @@ class CommonEqualityMixin(object):
         return not self.__eq__(other)
 
 
-class BaseControllerObject(CommonEqualityMixin):
+class BaseControllerObject(CommonEqualityMixin, EventHook):
     """ The controller objects are simply proxies to the state that is stored in the embedded controller.
     Other than an identifier, they are are stateless since the state resides in the controller.
     (Any state other than the identifier is cached state and may be used in preference to fetching the
     state from the external controller.)"""
 
     def __init__(self, controller):
+        super().__init__()
+        super(EventHook, self).__init__()
         self._controller = controller
 
     @property
@@ -78,6 +81,18 @@ class ObjectReference(BaseControllerObject):
         return self.__str__()
 
 
+class ObjectEvent():
+    def __init__(self, source, data=None):
+        self.source = source
+        self.data = data
+
+class ObjectCreatedEvent(ObjectEvent):
+    pass
+
+class ObjectDeletedEvent(ObjectEvent):
+    pass
+
+
 class ControllerObject(BaseControllerObject):
     @property
     @abstractmethod
@@ -85,10 +100,19 @@ class ControllerObject(BaseControllerObject):
         """  all controller objects have an id chain that describes their location and id in the system. """
         raise NotImplementedError
 
+    def file_object_event(self, type, data=None):
+        self.fire(type(self, data))
+
 
 class ContainerTraits:
     @abstractmethod
     def id_chain_for(self, slot):
+        raise NotImplementedError
+
+    def item(self, slot):
+        """
+        Fetches the item at this container's location.
+        """
         raise NotImplementedError
 
 
@@ -101,7 +125,6 @@ class TypedObject:
 
 
 class InstantiableObject(ControllerObject, TypedObject):
-
     def __init__(self, controller):
         super().__init__(controller)
         self.definition = None
@@ -118,14 +141,12 @@ class InstantiableObject(ControllerObject, TypedObject):
         """ encodes the construction parameters for the object into a data block """
         raise NotImplementedError
 
-
     def delete(self):
         """ deletes the corresponding object on the controller then detaches this proxy from the controller. """
         if self.controller:
             self.controller.delete_object(self)
-            self.container = None
-            self.slot = None
             self.controller = None
+            self.fire(ObjectDeletedEvent(self))
 
 
 class ContainedObject(ControllerObject):
@@ -145,7 +166,7 @@ class ContainedObject(ControllerObject):
 
     @property
     def id_chain(self):
-        """ Retrieves the id_chain for this object as a interable of integers.
+        """ Retrieves the id_chain for this object as a iterable of integers.
         :return: The id-chain for this object
         :rtype:
         """
@@ -159,17 +180,27 @@ class UserObject(InstantiableObject, ContainedObject):
 
 
 class Container(ContainedObject, ContainerTraits):
+    def __init__(self, controller, container, slot):
+        super().__init__(controller, container, slot)
+        items = {}
+
     def id_chain_for(self, slot):
         return self.id_chain + (slot,)
 
+    def item(self, slot):
+        return self.items[slot]
 
-class RootContainer(ControllerObject, ContainerTraits):
-    """ A root container is the top-level container - it is not contained in any container. """
-    # todo - add the profile that this object is contained in
 
-    def __init__(self, controller: Controller):
-        super().__init__(controller)
+class OpenContainerTraits:
+    @abstractmethod
+    def add(self, obj:ContainedObject):
+        raise NotImplementedError
 
+    def remove(self, obj:ContainedObject):
+        raise NotImplementedError
+
+
+class RootContainerTraits(ContainerTraits):
     def id_chain_for(self, slot):
         return slot,
 
@@ -180,6 +211,19 @@ class RootContainer(ControllerObject, ContainerTraits):
         :rtype:
         """
         return tuple()
+
+
+class RootContainer(RootContainerTraits, OpenContainerTraits, ControllerObject):
+    """ A root container is the top-level container in a profile."""
+    # todo - add the profile that this object is contained in
+    def __init__(self, profile):
+        super().__init__(profile.controller)
+        self.profile = profile
+
+
+class SystemRootContainer(RootContainerTraits, ControllerObject):
+    def __init__(self, controller):
+        super().__init__(controller)
 
 
 class SystemProfile(BaseControllerObject):
@@ -229,7 +273,7 @@ class SystemProfile(BaseControllerObject):
              access.
         """
         for x in self._objects.values():
-            x.controller = None
+            x.controller = None # make them zombies
         self._objects.clear()
 
     def _activate(self):
@@ -237,7 +281,7 @@ class SystemProfile(BaseControllerObject):
         Called by the controller to activate this profile. The profile instantiates the stub root container
         and the other stub objects currently in the profile.
         """
-        self._add([], RootContainer(self.controller))
+        self._add([], RootContainer(self))
         for ref in self.controller.list_objects(self):
             self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
 
@@ -278,15 +322,40 @@ class ValueEncoder:
     def _encode(self, value, buf):
         raise NotImplementedError
 
+class ValueChangedEvent(ObjectEvent):
+    def __init__(self, source, before, after):
+        super().__init__(source, (before, after))
 
-class ReadableObject(ContainedObject, ValueDecoder):
+    def before(self):
+        return self.data[0]
+
+    def after(self):
+        return self.data[1]
+
+
+class ValueObject(ContainedObject):
+    def __init__(self, controller, container, slot):
+        super().__init__(controller, container, slot)
+        self.previous = None
+
+    def update(self, new_value):
+        p = self.previous
+        self.previous = new_value
+        if p!=new_value:
+            self.fire(ValueChangedEvent(self, p, new_value))
+        return new_value
+
+
+class ReadableObject(ValueObject, ValueDecoder):
     def read(self):
-        return self.controller.read_value(self)
+        return self.update(self.controller.read_value(self))
 
 
-class WritableObject(ContainedObject, ValueDecoder, ValueEncoder):
+
+class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
     def write(self, value):
-        return self.controller.write_value(self, value)
+        self.controller.write_value(self, value)
+        self.update(value)
 
 
 class LongDecoder(ValueDecoder):
@@ -371,11 +440,6 @@ class ReadWriteBaseObject(ReadableObject, WritableObject):
 
 class ReadWriteUserObject(ReadWriteBaseObject, UserObject):
     pass
-    # def read(self):
-    #     return self.controller.read_value(self)
-    #
-    # def write(self, value):
-    #     self.controller.write_value(self, value)
 
 
 class ReadWriteSystemObject(ReadWriteBaseObject):
@@ -480,7 +544,7 @@ class BaseController(Controller):
         :param connector:       The connector that provides the v0.3.x protocol over a conduit.
         :param object_types:    The factory describing the object types available in the controller.
         """
-        self._sysroot = RootContainer(self)
+        self._sysroot = SystemRootContainer(self)
         self.connector = connector
         self.object_types = object_types
         self.profiles = dict()
