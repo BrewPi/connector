@@ -42,7 +42,7 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
         return cls.shortEnc.encode(arg[0]) + cls.shortEnc.encode(arg[1])
 
     @classmethod
-    def decode_definition(cls, data_block: bytes):
+    def decode_definition(cls, data_block: bytes, *args, **kwargs):
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
 
 
@@ -55,7 +55,7 @@ class IndirectValue(ReadWriteUserObject):
         return value.id_chain
 
     @classmethod
-    def decode_definition(cls, buf, controller):
+    def decode_definition(cls, buf, controller, *args, **kwargs):
         id_chain = decode_id(buf)
         return controller.object_at(id_chain)
 

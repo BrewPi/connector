@@ -104,7 +104,7 @@ class ValueProfile(ReadWriteUserObject):
         return ValueProfileState.encode_definition(args)
 
     @classmethod
-    def decode_definition(cls, data_block: bytes):
+    def decode_definition(cls, data_block: bytes, *args, **kwargs):
         return ValueProfileState.decode_definition(data_block)
 
 
