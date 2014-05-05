@@ -10,7 +10,7 @@ __author__ = 'mat'
 """
 
 timeout = 10  # long enough to allow debugging, but not infinite so that build processes will eventually terminate
-
+seen = False
 
 class FailedOperationError(Exception):
     pass
@@ -30,9 +30,18 @@ class CommonEqualityMixin(object):
 
 
     def _dicts_equal(self, other):
+        global seen
+        if seen:
+            raise ValueError("recursive call")
+
         d1 = self.__dict__
         d2 = other.__dict__
-        return d1==d2
+        try:
+            seen = True
+            result = d1==d2
+        finally:
+            seen = False
+        return result
 
     def __ne__(self, other):
         return not self.__eq__(other)
