@@ -32,11 +32,11 @@ class BaseCrossCompileTestCase:
 
 
 class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests):
-    pass
+    __test__ = True
 
 
 class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, ValueProfileTest):
-    pass
+    __test__ = True
 
 class CrossCompileIndirectValueTestCase(BaseCrossCompileTestCase, IndirectValueTest):
-    pass
+    __test__ = True

@@ -65,4 +65,4 @@ class BaseArduinoTestCase:
 
 
 class ArduinoTestCase(BaseArduinoTestCase, BaseControllerTestHelper, unittest.TestCase):
-    pass
+    __test__ = True

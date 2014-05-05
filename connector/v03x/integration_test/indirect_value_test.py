@@ -12,7 +12,7 @@ class IndirectValueTest(BaseControllerTestHelper):
         value = self.c.create_object(IndirectValue, ticks)
         current_ticks = ticks.read()
         current_value = value.read()
-        assert_that(current_ticks, is_(greater_than_or_equal_to(current_value)))
+        assert_that(current_value, is_(greater_than_or_equal_to(current_ticks)))
         p.delete()
 
     def test_attempt_write_on_readonly(self):

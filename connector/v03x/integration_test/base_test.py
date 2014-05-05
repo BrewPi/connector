@@ -56,6 +56,8 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
 
 
 class BaseControllerTestHelper(unittest.TestCase):
+    __test__ = False
+
     connector = None
     controller = None
     initialize_id = True
@@ -225,6 +227,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
                 break
             obj.delete()  # if this throws an exception the test fails
 
+        assert_that(tuple(self.c.list_objects(p)), is_(empty()))
         assert_that(error, is_not(None), "expected an exception")
         p.deactivate()
         p.activate()
@@ -289,10 +292,12 @@ class GeneralControllerTests(BaseControllerTestHelper):
         assert_that(tuple(c.list_objects(p2)), is_(equal_to(expected2)))
         assert_that(tuple(c.list_objects(p1)), is_(equal_to(expected1)))
         # verify values can be read - initially in profile 2
+        assert_that(p2.is_active, "expected p2 to be the active profile after reset")
         assert_that(c.read_value(o20), is_(b2), "value of persistent object in 2nd profile")
         p1.activate()
         assert_that(c.read_value(o11), is_(b1), "value of persistent object in 1st profile")
-        o10.delete()    # test object deletion as well
+        o10 = p1.refresh(o10)
+        o10.delete()
         assert_that(tuple(c.list_objects(p1)), is_(equal_to(tuple([c.ref(PersistentValue, b1, (1,))]))),
                     "should remove deleted object")
 
@@ -511,8 +516,4 @@ class GeneralControllerTests(BaseControllerTestHelper):
     def create_object(self) -> CurrentTicks:
         """ create some arbitrary object. """
         return self.c.create_current_ticks(self.c.root_container)
-
-
-if __name__ == '__main__':
-    unittest.main()
 
