@@ -140,7 +140,7 @@ class InstantiableObject(ControllerObject, TypedObject):
 
     @classmethod
     @abstractmethod
-    def decode_definition(cls, data_block: bytes, controller):
+    def decode_definition(cls, data_block: bytes, controller, *args, **kwargs):
         """ decodes the object's definition data block from the controller to python objects """
         raise NotImplementedError
 
@@ -242,6 +242,13 @@ class SystemProfile(BaseControllerObject):
         self.profile_id = profile_id
         self._objects = dict()  # map of object id to object. These objects are proxy objects to
                                 # objects in the controller
+
+    def __eq__(self, other):
+        return other is self or \
+               (type(other)==type(self) and self.profile_id==other.profile_id and self.controller is other.controller)
+
+    def refresh(self, obj):
+        return self.object_at(obj.id_chain)
 
     def activate(self):
         self.controller.activate_profile(self)
