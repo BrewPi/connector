@@ -34,23 +34,30 @@ class ControllerObjectTestCase(unittest.TestCase):
 
 
 class RootContainerTestCase(ControllerObjectTestCase):
+    def create_root(self):
+        p = SystemProfile(self.controller, 1)
+        r = RootContainer(p)
+        return r
+
     def test_id_chain_for_root_is_empty(self):
-        r = RootContainer(self.controller)
+        r = self.create_root()
         assert_that(r.id_chain, is_(equal_to(tuple())))
 
     def test_id_chain_for_slot(self):
-        r = RootContainer(self.controller)
+        r = self.create_root()
         assert_that(r.id_chain_for(10), is_(equal_to(tuple([10]))))
 
 
 class ContainerObjectTestCase(ControllerObjectTestCase):
     def test_id_chain_for_nested_container(self):
-        r = RootContainer(self.controller)
+        p = SystemProfile(self.controller, 1)
+        r = RootContainer(p)
         c1 = Container(self.controller, r, 5)
         assert_that(c1.id_chain, is_(equal_to((5,))))
 
     def test_id_chain_for_nested_slot(self):
-        r = RootContainer(self.controller)
+        p = SystemProfile(self.controller, 1)
+        r = RootContainer(p)
         c1 = Container(self.controller, r, 5)
         assert_that(c1.id_chain_for(10), is_(equal_to((5, 10))))
 
@@ -213,6 +220,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
                 break
         return count
 
+    @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_deactivating_profile_frees_space(self):
         """ fills up eeprom space by successvely creating and deleting objects until no more objects can be created.
             creates a new profile, and verifies that additional objects can be added to that.
