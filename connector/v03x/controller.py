@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from operator import add
 from connector import id_service
 from protocol.async import FutureResponse
 from protocol.v03x import ControllerProtocolV030, unsigned_byte, signed_byte
@@ -10,13 +11,16 @@ __author__ = 'mat'
 """
 
 timeout = 10  # long enough to allow debugging, but not infinite so that build processes will eventually terminate
-seen = False
+seen = []
+
 
 class FailedOperationError(Exception):
     pass
 
+
 class ProfileNotActiveError(FailedOperationError):
     pass
+
 
 class CommonEqualityMixin(object):
     """ define a simple equals implementation for these value objects. """
@@ -26,21 +30,22 @@ class CommonEqualityMixin(object):
             and self._dicts_equal(other)
 
     def __str__(self):
-        return super().__str__()+':'+str(self.__dict__)
+        return super().__str__() + ':' + str(self.__dict__)
 
 
     def _dicts_equal(self, other):
         global seen
-        if seen:
-            raise ValueError("recursive call")
+        p = (self, other)
+        if p in seen:
+            raise ValueError("recursive call " + p)
 
         d1 = self.__dict__
         d2 = other.__dict__
         try:
-            seen = True
-            result = d1==d2
+            seen.append(p)
+            result = d1 == d2
         finally:
-            seen = False
+            seen.pop()
         return result
 
     def __ne__(self, other):
@@ -95,8 +100,10 @@ class ObjectEvent():
         self.source = source
         self.data = data
 
+
 class ObjectCreatedEvent(ObjectEvent):
     pass
+
 
 class ObjectDeletedEvent(ObjectEvent):
     pass
@@ -162,6 +169,7 @@ class ContainedObject(ControllerObject):
     """ An object in a container. Contained objects have a slot that is the id relative to the container
         the object is in. The full id_chain is the container's id plus the object's slot in the container.
     """
+
     def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
         # todo - push the profile up to the root container and store controller in that.
         """
@@ -237,15 +245,17 @@ class SystemRootContainer(RootContainerTraits, ControllerObject):
 
 class SystemProfile(BaseControllerObject):
     """ represents a system profile - storage for a root container and contained objects. """
+
     def __init__(self, controller, profile_id):
         super().__init__(controller)
         self.profile_id = profile_id
         self._objects = dict()  # map of object id to object. These objects are proxy objects to
-                                # objects in the controller
+        # objects in the controller
 
     def __eq__(self, other):
         return other is self or \
-               (type(other)==type(self) and self.profile_id==other.profile_id and self.controller is other.controller)
+               (type(other) == type(
+                   self) and self.profile_id == other.profile_id and self.controller is other.controller)
 
     def refresh(self, obj):
         return self.object_at(obj.id_chain)
@@ -289,7 +299,7 @@ class SystemProfile(BaseControllerObject):
              access.
         """
         for x in self._objects.values():
-            x.controller = None # make them zombies
+            x.controller = None  # make them zombies
         self._objects.clear()
 
     def _activate(self):
@@ -338,6 +348,7 @@ class ValueEncoder:
     def _encode(self, value, buf):
         raise NotImplementedError
 
+
 class ValueChangedEvent(ObjectEvent):
     def __init__(self, source, before, after):
         super().__init__(source, (before, after))
@@ -357,7 +368,7 @@ class ValueObject(ContainedObject):
     def update(self, new_value):
         p = self.previous
         self.previous = new_value
-        if p!=new_value:
+        if p != new_value:
             self.fire(ValueChangedEvent(self, p, new_value))
         return new_value
 
@@ -365,7 +376,6 @@ class ValueObject(ContainedObject):
 class ReadableObject(ValueObject, ValueDecoder):
     def read(self):
         return self.update(self.controller.read_value(self))
-
 
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
@@ -381,6 +391,7 @@ class LongDecoder(ValueDecoder):
 
     def encoded_len(self):
         return 4
+
 
 class UnsignedShortDecoder(ValueDecoder):
     def _decode(self, buf):
@@ -425,6 +436,7 @@ class ByteEncoder(ValueEncoder):
 
     def encoded_len(self):
         return 1
+
 
 class LongEncoder(ValueEncoder):
     def _encode(self, value, buf):
@@ -609,7 +621,7 @@ class BaseController(Controller):
         self._handle_error(self.p.delete_profile, p.profile_id)
         if self.current_profile == p:
             self._set_current_profile(None)
-        self.profiles.pop(p.profile_id, None)   # profile may have already been deleted
+        self.profiles.pop(p.profile_id, None)  # profile may have already been deleted
 
     def activate_profile(self, p: SystemProfile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
@@ -776,7 +788,7 @@ class BaseController(Controller):
     def p(self) -> ControllerProtocolV030:  # short-hand and type hint
         return self.connector.protocol
 
-    def _check_current_profile(self)->SystemProfile:
+    def _check_current_profile(self) -> SystemProfile:
         if not self.current_profile:
             raise FailedOperationError("no current profile")
         return self.current_profile
