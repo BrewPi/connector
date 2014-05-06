@@ -38,5 +38,6 @@ class CrossCompileTestCase(BaseCrossCompileTestCase, GeneralControllerTests):
 class CrossCompileSysTimeTestCase(BaseCrossCompileTestCase, SystemTimeTest, ValueProfileTest):
     __test__ = True
 
+
 class CrossCompileIndirectValueTestCase(BaseCrossCompileTestCase, IndirectValueTest):
     __test__ = True

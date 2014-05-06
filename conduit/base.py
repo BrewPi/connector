@@ -7,7 +7,7 @@ __author__ = 'mat'
 
 class Conduit:
     """
-    A conduit allows two-way communication.
+    A conduit allows two-way communication. It provides an file-like input endpoint and a file-like output endpoint.
     """
 
     @property
@@ -27,7 +27,7 @@ class Conduit:
     @property
     @abstractmethod
     def open(self) -> bool:
-        """ determiens if this conduit is open. When open, the streams provided by
+        """ determines if this conduit is open. When open, the streams provided by
             input and output can be read from/written to."""
         raise NotImplementedError
 

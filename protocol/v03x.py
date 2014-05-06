@@ -79,7 +79,6 @@ def decode_id(buf) -> list():
     return [ (x & 0x7F) for x in buf ]
 
 
-
 class ByteArrayRequest(Request):
     """ represents a request as an array or bytes. The byte array defines the key for the reuqest, since responses
         always repeat the request data verbatim. """
