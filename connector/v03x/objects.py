@@ -6,20 +6,29 @@ __author__ = 'mat'
 
 
 # Now comes the application-specific objects.
-# Todo - it would be nice to separate these out, or make it extensible in python
-# taken steps in that direction.
 
 class DynamicContainer(EmptyDefinition, UserObject, Container):
     type_id = 4
 
 
-class PersistentValueBase(BufferDecoder, BufferEncoder):
+class PersistentValueBase(EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, ForwardingDecoder):
+    """ This is split into a base class to support system and user persisted values. The default value type is
+        a buffer. This can be changed by setting the encoder and decoder attributes. """
+    decoder = BufferDecoder()
+    encoder = BufferEncoder()
+
     def encoded_len(self):
         return 0  # not known
 
 
-class PersistentValue(NonEmptyBlockDefinition, PersistentValueBase, ReadWriteUserObject):
+class PersistentValue(PersistentValueBase, ReadWriteUserObject):
+    """ A user persistent value. """
     type_id = 5
+
+
+class PersistentShortValue(PersistentValue):
+    decoder = ShortDecoder()
+    encoder = ShortEncoder()
 
 
 class LogicActuator:
@@ -31,6 +40,9 @@ class BangBangController:
 
 
 class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
+    """ A persistent value in the controller. The value is persisted when it the amount it changes from the last persisted
+    value passes a certain threshold.
+    Definition args: a tuple of (initial value:signed 16-bit, threshold: unsigned 16-bit). """
     type_id = 9
     shortEnc = ShortEncoder()
     shortDec = ShortDecoder()
@@ -44,7 +56,6 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
     @classmethod
     def decode_definition(cls, data_block: bytes, *args, **kwargs):
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
-
 
 
 class IndirectValue(ReadWriteUserObject):
