@@ -8,6 +8,9 @@ from serial import Serial
 
 from connector.v03x.integration_test.base_test import BaseControllerTestHelper
 from connector.serialconn import SerialConnector
+from connector.v03x.integration_test.indirect_value_test import IndirectValueTest
+from connector.v03x.integration_test.persistence_test import PersistentChangeValueTest, PersistentValueTest
+from connector.v03x.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from connector.v03x.objects import ArduinoController
 from test.config import apply_module
 
@@ -65,4 +68,16 @@ class BaseArduinoTestCase:
 
 
 class ArduinoTestCase(BaseArduinoTestCase, BaseControllerTestHelper, unittest.TestCase):
+    __test__ = True
+
+
+class ArduinoSysTimeTestCase(BaseArduinoTestCase, SystemTimeTest, ValueProfileTest):
+    __test__ = True
+
+
+class ArduinoIndirectValueTestCase(BaseArduinoTestCase, IndirectValueTest):
+    __test__ = True
+
+
+class ArduinoPersistenceTestCase(BaseArduinoTestCase, PersistentValueTest, PersistentChangeValueTest):
     __test__ = True
