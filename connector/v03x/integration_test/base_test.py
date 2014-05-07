@@ -63,6 +63,9 @@ class ContainerObjectTestCase(ControllerObjectTestCase):
 
 
 class BaseControllerTestHelper(unittest.TestCase):
+    """ Setup connects to the controller and verifies it has been assigned an ID.
+        Erases all existing state so the test starts with a completely blank state.
+    """
     __test__ = False
 
     connector = None
@@ -114,13 +117,13 @@ class BaseControllerTestHelper(unittest.TestCase):
     def assign_id(self):
         return id_service.simple_id_service
 
-    def create_connection(self):
+    def create_connection(self, load_profile=False):
         # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
         self.connector.connect()
         self.protocol = self.controller.connector.protocol  # so we can access the protocol when the conduit is disconnected
         self.protocol.start_background_thread()
         if self.initialize_id:
-            self.controller.initialize(self.assign_id())
+            self.controller.initialize(self.assign_id(), load_profile)
 
     def discard_connection(self):
         self.c.connector.disconnect()
@@ -136,7 +139,7 @@ class BaseControllerTestHelper(unittest.TestCase):
         # mega/uno - do not, since serial connection does a reset
         self.controller.reset(erase_eeprom, False)
         self.discard_connection()
-        self.create_connection()
+        self.create_connection(load_profile=True)
 
     def setup_profile(self) -> SystemProfile:
         """ create a profile and activate it. Verifies that it is active. """

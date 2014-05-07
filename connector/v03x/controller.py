@@ -631,7 +631,7 @@ class BaseController(Controller):
     def system_time(self) -> SystemTime:
         return SystemTime(self, self._sysroot, 1)
 
-    def initialize(self, fetch_id:callable):
+    def initialize(self, fetch_id:callable, load_profile=True):
         self.profiles = dict()
         self.current_profile = None
         id_obj = self.system_id()
@@ -639,7 +639,8 @@ class BaseController(Controller):
         if int(current_id[0]) == 0xFF:
             current_id = fetch_id()
             id_obj.write(current_id)
-        self._set_current_profile(self.active_and_available_profiles()[0])
+        if load_profile:
+            self._set_current_profile(self.active_and_available_profiles()[0])
         return current_id
 
     def full_erase(self):
