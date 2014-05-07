@@ -319,6 +319,7 @@ class SystemProfile(BaseControllerObject):
 
 
 class ValueDecoder:
+    """ Interface expected of decoders. """
     @abstractmethod
     def encoded_len(self):
         """ The number of byte expected for in the encoding of this value.  """
@@ -333,7 +334,22 @@ class ValueDecoder:
         raise NotImplementedError
 
 
+class ForwardingDecoder(ValueDecoder):
+    """ Decoder implementation that forwards to another decoder instance. This allows the encoding implementation to be changed
+        at runtime. """
+    decoder = None
+    def __init__(self, decoder=None):
+        if decoder: self.decoder = decoder
+
+    def encoded_len(self):
+        return self.decoder.encoded_len()
+
+    def decode(self, buf):
+        return self.decoder.decode(buf)
+
+
 class ValueEncoder:
+    """ Interface expected of encoders. """
     @abstractmethod
     def encoded_len(self):
         """ The number of byte expected for in the encoding of this value.  """
@@ -344,9 +360,24 @@ class ValueEncoder:
         buf = bytearray(self.encoded_len())
         return bytes(self._encode(value, buf))
 
-    @abstractmethod
     def _encode(self, value, buf):
         raise NotImplementedError
+
+
+class ForwardingEncoder(ValueEncoder):
+    """ Encoder implementation that forwards to another encoder instance. This allows the encoding implementation to be changed
+        at runtime. """
+    encoder = None
+
+    def __init__(self, encoder=None):
+        if encoder: self.encoder = encoder
+
+    def encoded_len(self):
+        return self.encoder.encoded_len()
+
+    def encode(self, value):
+        return self.encoder.encode(value)
+
 
 
 class ValueChangedEvent(ObjectEvent):
@@ -503,6 +534,8 @@ class SystemTime(ReadWriteSystemObject):
 
 
 class ObjectDefinition:
+    """ The definition codec for an object. Converts between the byte array passed to the protocol and higher-level
+        argument types used in python code. """
     @classmethod
     @abstractmethod
     def decode_definition(cls, data_block, controller):
@@ -544,6 +577,20 @@ class NonEmptyBlockDefinition(ObjectDefinition):
     @classmethod
     def decode_definition(cls, data_block, controller):
         return cls.encode_definition(data_block)
+
+
+class EncoderDecoderDefinition(ObjectDefinition):
+    """ An definition codec that delegates to a class-defined encoder and decoder. """
+    encoder = None
+    decoder = None
+
+    @classmethod
+    def encode_definition(cls, arg):
+        return cls.encoder.encode(arg)
+
+    @classmethod
+    def decode_definition(cls, data_block, controller):
+        return cls.decoder.decode(data_block)
 
 
 class ReadWriteValue(ReadWriteBaseObject):
