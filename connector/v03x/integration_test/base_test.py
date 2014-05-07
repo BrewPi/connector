@@ -511,20 +511,12 @@ class GeneralControllerTests(BaseControllerTestHelper):
         assert_that(calling(self.c.create_object).with_args(PersistentValue, bytes(240)), raises(FailedOperationError),
                     "Expected last allocation to fail due to insufficient eeprom space")
 
-    def test_persist_change_value(self):
-        p = self.setup_profile()
-        v = self.c.create_object(PersistChangeValue, (300, 50))
-        assert_that(v.value, is_(equal_to(300)), "expected initial value to be 500")
-        v.value = -400
-        assert_that(v.value, is_(equal_to(-400)), "expected updated value")
-        v.value = -420
-        assert_that(v.value, is_(equal_to(-420)), "expected updated value")
-        self.reset()
-        assert_that(v.value, is_(equal_to(-400)), "expected value to be -400 since this was the last value with "
-                                                 "difference > than threshold of 50")
-
-
     def create_object(self) -> CurrentTicks:
         """ create some arbitrary object. """
         return self.c.create_current_ticks(self.c.root_container)
 
+class ObjectTestHelper(BaseControllerTestHelper):
+    """ Base class for tests that are more focus on testing objects in profiles. The setup creates a default profile."""
+    def setUp(self):
+        super().setUp()
+        self.setup_profile()
