@@ -25,6 +25,13 @@ class PersistentValue(PersistentValueBase, ReadWriteUserObject):
     """ A user persistent value. """
     type_id = 5
 
+    def write_mask(self, value, mask):
+        """ Allows a partial update of the value via a masked write. Wherever the mask bit has is set, the corresponding
+            bit from value is written.
+        """
+        result = self.controller.write_masked_value(self, (value,mask))
+        self._update_value(result)
+
 
 class PersistentShortValue(PersistentValue):
     decoder = ShortDecoder()

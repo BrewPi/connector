@@ -348,6 +348,16 @@ class ForwardingDecoder(ValueDecoder):
         return self.decoder.decode(buf)
 
 
+def make_default_mask(buf):
+    """
+    >>> make_default_mask(bytearray(3))
+    bytearray(b'\xff\xff\xff')
+    """
+    for x in range(len(buf)):
+        buf[x] = 0xFF
+    return buf
+
+
 class ValueEncoder:
     """ Interface expected of encoders. """
     @abstractmethod
@@ -359,6 +369,25 @@ class ValueEncoder:
         """ Encodes an object into a buffer. """
         buf = bytearray(self.encoded_len())
         return bytes(self._encode(value, buf))
+
+    def encode_masked(self, value):
+        """ Encodes a tuple representing a value and a mask into a a pair of byte buffers encoding the value and the
+            write mask.
+        """
+        buf, mask = self._encode_mask(value, bytearray(self.encoded_len()), bytearray(self.encoded_len()))
+        return bytes(buf), bytes(mask)
+
+    def _encode_mask(self, value, buf_value, buf_mask):
+        """
+        :param value: the value and mask to encode
+        :param bufs: The buffer to encode the value into
+        :return: a tuple of the encoded value and encoded mask.
+        """
+        self._encode(value[0], buf_value)
+        self._encode(value[1], buf_mask)
+        return buf_value, buf_mask
+
+
 
     def _encode(self, value, buf):
         raise NotImplementedError
@@ -378,6 +407,8 @@ class ForwardingEncoder(ValueEncoder):
     def encode(self, value):
         return self.encoder.encode(value)
 
+    def encode_masked(self, value):
+        return self.encoder.encode_masked(value)
 
 
 class ValueChangedEvent(ObjectEvent):
@@ -396,7 +427,7 @@ class ValueObject(ContainedObject):
         super().__init__(controller, container, slot)
         self.previous = None
 
-    def update(self, new_value):
+    def _update_value(self, new_value):
         p = self.previous
         self.previous = new_value
         if p != new_value:
@@ -406,13 +437,13 @@ class ValueObject(ContainedObject):
 
 class ReadableObject(ValueObject, ValueDecoder):
     def read(self):
-        return self.update(self.controller.read_value(self))
+        return self._update_value(self.controller.read_value(self))
 
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
     def write(self, value):
-        self.controller.write_value(self, value)
-        self.update(value)
+        value = self.controller.write_value(self, value)
+        self._update_value(value)
 
 
 class LongDecoder(ValueDecoder):
@@ -490,7 +521,10 @@ class BufferDecoder(ValueDecoder):
 
 class BufferEncoder(ValueEncoder):
     def encode(self, value):
-        return value
+        return bytes(value)
+
+    def encode_masked(self, value):
+        return bytes(value[0]), bytes(value[1])
 
 
 class ReadWriteBaseObject(ReadableObject, WritableObject):
@@ -653,7 +687,10 @@ class BaseController(Controller):
         return obj.decode(data)
 
     def write_value(self, obj: WritableObject, value):
-        self._write_value(obj, value, self.p.write_value)
+        return self._write_value(obj, value, self.p.write_value)
+
+    def write_masked_value(self, obj: WritableObject, value):
+        return self._write_masked_value(obj, value, self.p.write_masked_value)
 
     def delete_object(self, obj: ContainedObject):
         self._delete_object_at(obj.id_chain)
@@ -718,6 +755,14 @@ class BaseController(Controller):
         data = self._fetch_data_block(fn, obj.id_chain, encoded)
         if data != encoded:
             raise FailedOperationError("could not write value")
+        return value
+
+    def _write_masked_value(self, obj: WritableObject, value, fn):
+        encoded = obj.encode_masked(value)
+        data = self._fetch_data_block(fn, obj.id_chain, *encoded)
+        if not data:
+            raise FailedOperationError("could not write masked value")
+        return obj.decode(data)
 
     def _delete_object_at(self, id_chain, optional=False):
         """

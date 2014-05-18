@@ -32,6 +32,11 @@ class PersistentValueTest(ObjectTestHelper):
         self.reset()
         assert_that(p.value, is_(equal_to(b'\x01\x02\x03')))
 
+    def test_partial_write(self):
+        p = self.c.create_object(PersistentValue, b'\x05\x06\x07')
+        p.write_mask(b'\x9a\xf0\xff', b'\xfa\x80\x88')
+        assert_that(p.value, is_(equal_to(b'\x9f\x86\x8f')))
+
     def test_shortEncodingType(self):
         p = self.c.create_object(PersistentShortValue, -400)
         assert_that(p.value, is_(-400))

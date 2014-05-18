@@ -347,7 +347,7 @@ class Commands:
     list_profiles = 0xE
     read_system_value = 0xF
     write_system_value = 0x10
-    list_system_values = 0x11
+    write_masked_value = 0x11
 
 
 # A note to maintainers: These ResponseDecoder objects have to be written carefully - the
@@ -371,7 +371,10 @@ class ResponseDecoder(metaclass=ABCMeta):
 
     @abstractmethod
     def _parse(self, buf):
-        pass
+        """
+        parse the buffer so that the content is validated and streamed
+        """
+        raise NotImplementedError
 
     def _read_id_chain(self, buf):
         result = bytearray()
@@ -382,11 +385,11 @@ class ResponseDecoder(metaclass=ABCMeta):
                 break
         return result
 
-    def _read_vardata(self, stream):
+    def _read_vardata(self, stream, scale=1):
         """ decodes variable length data from the stream. The first byte is the number of bytes in the data block,
             followed by N bytes that make up the data block.
         """
-        size = self._read_byte(stream)
+        size = self._read_byte(stream) * scale
         buf = bytearray(size)
         idx = 0
         while idx < size:
@@ -455,6 +458,12 @@ class WriteValueResponseDecoder(ResponseDecoder):
     def decode_response(self, stream):
         """ The write command response is a single variable length buffer indicating the value written. """
         return self._read_vardata(stream)
+
+
+class WriteMaskedValueResponseDecoder(WriteValueResponseDecoder):
+    def _parse(self, buf):
+        self._read_id_chain(buf)    # id chain
+        self._read_vardata(buf, 2)  # 2 bytes for length
 
 
 class CreateObjectResponseDecoder(ResponseDecoder):
@@ -605,6 +614,13 @@ def nop():
     pass
 
 
+def interleave(*args):
+    """ Interleaves two buffers.
+    >>> interleave(b'ABC', b'DEF')
+    b'ADBECF'
+    """
+    return bytes([x for z in zip(*args) for x in z])
+
 
 class ControllerProtocolV030(BaseAsyncProtocolHandler):
     """ Implements the v2 hex-encoded binary protocol. """
@@ -625,7 +641,7 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         Commands.list_profiles: ListProfilesResponseDecoder,
         Commands.read_system_value: ReadSystemValueCommandDecoder,
         Commands.write_system_value: WriteSystemValueCommandDecoder,
-        Commands.list_system_values: ListSystemValuesCommandDecoder
+        Commands.write_masked_value: WriteMaskedValueResponseDecoder
     }
 
     def __init__(self, conduit: Conduit,
@@ -644,6 +660,11 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
 
     def write_value(self, id_chain, buf) -> FutureResponse:
         return self._send_command(Commands.write_value, encode_id(id_chain), len(buf), buf)
+
+    def write_masked_value(self, id_chain, buf, mask) -> FutureResponse:
+        if len(buf)!=len(mask):
+            raise ValueError("mask and data buffer must be same length")
+        return self._send_command(Commands.write_masked_value, encode_id(id_chain), len(buf), interleave(buf, mask))
 
     def create_object(self, id_chain, object_type, data) -> FutureResponse:
         return self._send_command(Commands.create_object, encode_id(id_chain), object_type, len(data), data)
@@ -678,9 +699,6 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
 
     def write_system_value(self, id_chain, buf) -> FutureResponse:
         return self._send_command(Commands.write_system_value, encode_id(id_chain), len(buf), buf)
-
-    def list_system_values(self) -> FutureResponse:
-        return self._send_command(Commands.list_system_values)
 
     @staticmethod
     def build_bytearray(*args):
