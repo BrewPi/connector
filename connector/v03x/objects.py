@@ -29,8 +29,7 @@ class PersistentValue(PersistentValueBase, ReadWriteUserObject):
         """ Allows a partial update of the value via a masked write. Wherever the mask bit has is set, the corresponding
             bit from value is written.
         """
-        result = self.controller.write_masked_value(self, (value,mask))
-        self._update_value(result)
+        return self.controller.write_masked_value(self, (value,mask))
 
 
 class PersistentShortValue(PersistentValue):

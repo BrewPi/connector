@@ -348,6 +348,7 @@ class Commands:
     read_system_value = 0xF
     write_system_value = 0x10
     write_masked_value = 0x11
+    write_system_masked_value = 0x12
 
 
 # A note to maintainers: These ResponseDecoder objects have to be written carefully - the
@@ -408,7 +409,7 @@ class ResponseDecoder(metaclass=ABCMeta):
             bytes are returned as unsigned. """
         b = stream.read(1)
         if not b:
-            raise ValueError
+            raise ValueError("no more data in stream.")
         return b[0]
 
     def _read_status_code(self, stream):
@@ -464,6 +465,9 @@ class WriteMaskedValueResponseDecoder(WriteValueResponseDecoder):
     def _parse(self, buf):
         self._read_id_chain(buf)    # id chain
         self._read_vardata(buf, 2)  # 2 bytes for length
+
+class WriteSystemMaskedValueResponseDecoder(WriteMaskedValueResponseDecoder):
+    pass
 
 
 class CreateObjectResponseDecoder(ResponseDecoder):
@@ -641,7 +645,8 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         Commands.list_profiles: ListProfilesResponseDecoder,
         Commands.read_system_value: ReadSystemValueCommandDecoder,
         Commands.write_system_value: WriteSystemValueCommandDecoder,
-        Commands.write_masked_value: WriteMaskedValueResponseDecoder
+        Commands.write_masked_value: WriteMaskedValueResponseDecoder,
+        Commands.write_system_masked_value: WriteSystemMaskedValueResponseDecoder
     }
 
     def __init__(self, conduit: Conduit,
@@ -662,9 +667,7 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         return self._send_command(Commands.write_value, encode_id(id_chain), len(buf), buf)
 
     def write_masked_value(self, id_chain, buf, mask) -> FutureResponse:
-        if len(buf)!=len(mask):
-            raise ValueError("mask and data buffer must be same length")
-        return self._send_command(Commands.write_masked_value, encode_id(id_chain), len(buf), interleave(buf, mask))
+        return self._cmd_write_masked_value(Commands.write_masked_value, id_chain, buf, mask)
 
     def create_object(self, id_chain, object_type, data) -> FutureResponse:
         return self._send_command(Commands.create_object, encode_id(id_chain), object_type, len(data), data)
@@ -699,6 +702,14 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
 
     def write_system_value(self, id_chain, buf) -> FutureResponse:
         return self._send_command(Commands.write_system_value, encode_id(id_chain), len(buf), buf)
+
+    def write_system_masked_value(self, id_chain, buf, mask) -> FutureResponse:
+        return self._cmd_write_masked_value(Commands.write_system_masked_value, id_chain, buf, mask)
+
+    def _cmd_write_masked_value(self, cmd, id_chain, buf, mask):
+        if len(buf)!=len(mask):
+            raise ValueError("mask and data buffer must be same length")
+        return self._send_command(cmd, encode_id(id_chain), len(buf), interleave(buf, mask))
 
     @staticmethod
     def build_bytearray(*args):

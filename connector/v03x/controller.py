@@ -131,6 +131,9 @@ class ContainerTraits:
         """
         raise NotImplementedError
 
+    def root_container(self):
+        raise NotImplementedError
+
 
 class Controller:
     pass
@@ -189,6 +192,9 @@ class ContainedObject(ControllerObject):
         """
         return self.container.id_chain_for(self.slot)
 
+    def root_container(self):
+        return self.container.root_container()
+
 
 class UserObject(InstantiableObject, ContainedObject):
     def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
@@ -197,6 +203,7 @@ class UserObject(InstantiableObject, ContainedObject):
 
 
 class Container(ContainedObject, ContainerTraits):
+    """ A generic non-root container. """
     def __init__(self, controller, container, slot):
         super().__init__(controller, container, slot)
         items = {}
@@ -206,6 +213,9 @@ class Container(ContainedObject, ContainerTraits):
 
     def item(self, slot):
         return self.items[slot]
+
+    def root_container(self):
+        return self.container.root_container()
 
 
 class OpenContainerTraits:
@@ -229,6 +239,9 @@ class RootContainerTraits(ContainerTraits):
         """
         return tuple()
 
+    def root_container(self):
+        return self
+
 
 class RootContainer(RootContainerTraits, OpenContainerTraits, ControllerObject):
     """ A root container is the top-level container in a profile."""
@@ -239,6 +252,7 @@ class RootContainer(RootContainerTraits, OpenContainerTraits, ControllerObject):
 
 
 class SystemRootContainer(RootContainerTraits, ControllerObject):
+    """ Represents the container for system objects. """
     def __init__(self, controller):
         super().__init__(controller)
 
@@ -437,13 +451,12 @@ class ValueObject(ContainedObject):
 
 class ReadableObject(ValueObject, ValueDecoder):
     def read(self):
-        return self._update_value(self.controller.read_value(self))
+        return self.controller.read_value(self)
 
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
     def write(self, value):
         value = self.controller.write_value(self, value)
-        self._update_value(value)
 
 
 class LongDecoder(ValueDecoder):
@@ -535,13 +548,9 @@ class ReadWriteUserObject(ReadWriteBaseObject, UserObject):
     pass
 
 
+
 class ReadWriteSystemObject(ReadWriteBaseObject):
-    def read(self):
-        return self.controller.read_system_value(self)
-
-    def write(self, value):
-        self.controller.write_system_value(self, value)
-
+    pass
 
 class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
     """ represents the unique ID for the controller that is stored on the controller.
@@ -551,9 +560,38 @@ class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
         return 1
 
 
+def mask(value, byte_count):
+    """
+    >>> mask(None, 2)
+    0
+    >>> mask(0, 2)
+    65535
+    >>> mask(0, 4)
+    4294967295
+    """
+    if value is None:
+        return 0
+    r = 0
+    for x in range(0, byte_count):
+        r = r << 8 | 0xFF
+    return r
+
 class SystemTime(ReadWriteSystemObject):
     def encoded_len(self):
         return 6
+
+    def set(self, time=None, scale=None):
+        """ Sets the time and/or scale. If either value is None the existing value is used.
+            Returns a tuple of (time,scale) for the current time and scale. (Same as read() method.)
+        """
+        return self.controller.write_masked_value(self, (time, scale))
+
+    def _encode_mask(self, value, buf_value, buf_mask):
+        time, scale = value
+        buf_value = self._encode(value, buf_value)
+        mask_value = (mask(value[0], 4), mask(value[1], 2))
+        buf_mask = self._encode(mask_value, buf_mask)
+        return buf_value, buf_mask
 
     def _decode(self, buf):
         time = LongDecoder()._decode(buf[0:4])
@@ -562,8 +600,10 @@ class SystemTime(ReadWriteSystemObject):
 
     def _encode(self, value, buf):
         time, scale = value
-        buf[0:4] = LongEncoder().encode(time)
-        buf[4:6] = ShortEncoder().encode(scale)
+        if time is not None:
+            buf[0:4] = LongEncoder().encode(time)
+        if scale is not None:
+            buf[4:6] = ShortEncoder().encode(scale)
         return buf
 
 
@@ -663,6 +703,7 @@ class BaseController(Controller):
         return SystemID(self, self._sysroot, 0)
 
     def system_time(self) -> SystemTime:
+        # todo - would be cleaner if we used cached instance rather than creating a new instance each time
         return SystemTime(self, self._sysroot, 1)
 
     def initialize(self, fetch_id:callable, load_profile=True):
@@ -683,14 +724,17 @@ class BaseController(Controller):
             self.delete_profile(p)
 
     def read_value(self, obj: ReadableObject):
-        data = self._fetch_data_block(self.p.read_value, obj.id_chain, obj.encoded_len())
+        fn = self.p.read_system_value if self.is_system_object(obj) else self.p.read_value
+        data = self._fetch_data_block(fn, obj.id_chain, obj.encoded_len())
         return obj.decode(data)
 
     def write_value(self, obj: WritableObject, value):
-        return self._write_value(obj, value, self.p.write_value)
+        fn = self.p.write_system_value if self.is_system_object(obj) else self.p.write_value
+        return self._write_value(obj, value, fn)
 
     def write_masked_value(self, obj: WritableObject, value):
-        return self._write_masked_value(obj, value, self.p.write_masked_value)
+        fn = self.p.write_system_masked_value if self.is_system_object(obj) else self.p.write_masked_value
+        return self._write_masked_value(obj, value, fn)
 
     def delete_object(self, obj: ContainedObject):
         self._delete_object_at(obj.id_chain)
@@ -743,18 +787,16 @@ class BaseController(Controller):
             self.profiles.clear()
             self.current_profile = None
 
-    def read_system_value(self, obj: ReadableObject):
-        data = self._fetch_data_block(self.p.read_system_value, obj.id_chain, obj.encoded_len())
-        return obj.decode(data)
-
-    def write_system_value(self, obj: WritableObject, value):
-        self._write_value(obj, value, self.p.write_system_value)
+    def is_system_object(self, obj:ContainedObject):
+        return obj.root_container()==self._sysroot
 
     def _write_value(self, obj: WritableObject, value, fn):
         encoded = obj.encode(value)
         data = self._fetch_data_block(fn, obj.id_chain, encoded)
         if data != encoded:
             raise FailedOperationError("could not write value")
+        new_value = obj.decode(data)
+        obj._update_value(new_value)
         return value
 
     def _write_masked_value(self, obj: WritableObject, value, fn):
@@ -762,7 +804,9 @@ class BaseController(Controller):
         data = self._fetch_data_block(fn, obj.id_chain, *encoded)
         if not data:
             raise FailedOperationError("could not write masked value")
-        return obj.decode(data)
+        new_value = obj.decode(data)
+        obj._update_value(new_value)
+        return new_value
 
     def _delete_object_at(self, id_chain, optional=False):
         """
