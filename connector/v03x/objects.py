@@ -1,6 +1,6 @@
 from connector.v03x.controller import *
 from connector.v03x.time import CurrentTicks, ValueProfile
-from protocol.v03x import decode_id
+from protocol.v03x import decode_id, encode_id
 
 __author__ = 'mat'
 
@@ -69,7 +69,7 @@ class IndirectValue(ReadWriteUserObject):
 
     @classmethod
     def encode_definition(cls, value:ControllerObject):
-        return value.id_chain
+        return encode_id(value.id_chain)
 
     @classmethod
     def decode_definition(cls, buf, controller, *args, **kwargs):
