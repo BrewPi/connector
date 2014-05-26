@@ -24,7 +24,8 @@ class PersistentChangeValueTest(ObjectTestHelper):
 class PersistentValueTest(ObjectTestHelper):
     """ Tests the PersistentValue object type. """
     def test_createAndPersistValue(self):
-        p = self.c.create_object(PersistentValue, b'\x05\x06\x07')
+        holder = self.c.create_dynamic_container()
+        p = self.c.create_object(PersistentValue, b'\x05\x06\x07', container=holder)
         assert_that(p.value, is_(equal_to(b'\x05\x06\x07')))
         self.reset()
         assert_that(p.value, is_(equal_to(b'\x05\x06\x07')))

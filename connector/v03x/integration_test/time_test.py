@@ -57,6 +57,21 @@ class SystemTimeTest(BaseControllerTestHelper):
         assert_that(time, greater_than(60090))
         assert_that(time, less_than(60200))
 
+    def test_create_current_ticks(self):
+        """ when a profile is created and
+            when a CurrentTicks() object is created
+                then the returned value is > 0
+            and when waiting 10 ms then the new value is at least 10 ms larger
+        """
+        self.setup_profile()
+        host = self.controller.root_container
+        current_ticks = self.controller.create_current_ticks(host)
+        ticks = current_ticks.read()
+        assert_that(ticks, is_(greater_than(0)), "expected ticks > 0")
+        sleep(0.1)
+        ticks2 = current_ticks.read()
+        assert_that(ticks2 - ticks, is_(greater_than(90)))
+
 
 
 
