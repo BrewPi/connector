@@ -7,10 +7,6 @@ __author__ = 'mat'
 
 # Now comes the application-specific objects.
 
-class DynamicContainer(EmptyDefinition, UserObject, Container):
-    type_id = 4
-
-
 class PersistentValueBase(EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, ForwardingDecoder):
     """ This is split into a base class to support system and user persisted values. The default value type is
         a buffer. This can be changed by setting the encoder and decoder attributes. """

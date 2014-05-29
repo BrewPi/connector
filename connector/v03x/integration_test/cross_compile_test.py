@@ -3,6 +3,7 @@ import sys
 import unittest
 
 from connector.v03x.integration_test.base_test import GeneralControllerTests
+from connector.v03x.integration_test.control_loop_test import ControlLoopTest
 from connector.v03x.integration_test.indirect_value_test import IndirectValueTest
 from connector.v03x.integration_test.persistence_test import PersistentChangeValueTest, PersistentValueTest
 from connector.v03x.integration_test.time_test import SystemTimeTest, ValueProfileTest
@@ -46,3 +47,8 @@ class CrossCompileIndirectValueTestCase(BaseCrossCompileTestCase, IndirectValueT
 
 class CrossCompilePersistenceTestCase(BaseCrossCompileTestCase, PersistentValueTest, PersistentChangeValueTest):
     __test__ = True
+
+
+class CrossCompileControlLoopTestCase(BaseCrossCompileTestCase, ControlLoopTest):
+    __test__ = True
+

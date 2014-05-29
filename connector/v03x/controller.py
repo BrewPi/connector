@@ -204,6 +204,7 @@ class UserObject(InstantiableObject, ContainedObject):
 
 class Container(ContainedObject, ContainerTraits):
     """ A generic non-root container. """
+
     def __init__(self, controller, container, slot):
         super().__init__(controller, container, slot)
         items = {}
@@ -225,6 +226,16 @@ class OpenContainerTraits:
 
     def remove(self, obj:ContainedObject):
         raise NotImplementedError
+
+    def notify_added(self, obj:ContainedObject):
+        """ Notification from the controller that this object will be added to this container. This is called
+            after the object has been added in the controller
+            """
+
+    def notify_removed(self, obj:ContainedObject):
+        """ Notification from the controller that this object will be removed from this container. This is called
+            prior to removing the object from the container in the controller and clearing the container member in the
+            contained object. """
 
 
 class RootContainerTraits(ContainerTraits):
@@ -253,6 +264,7 @@ class RootContainer(RootContainerTraits, OpenContainerTraits, ControllerObject):
 
 class SystemRootContainer(RootContainerTraits, ControllerObject):
     """ Represents the container for system objects. """
+
     def __init__(self, controller):
         super().__init__(controller)
 
@@ -321,7 +333,7 @@ class SystemProfile(BaseControllerObject):
         Called by the controller to activate this profile. The profile instantiates the stub root container
         and the other stub objects currently in the profile.
         """
-        self._add([], RootContainer(self))
+        self._add([], ControllerLoopContainer(self))
         for ref in self.controller.list_objects(self):
             self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
 
@@ -334,6 +346,7 @@ class SystemProfile(BaseControllerObject):
 
 class ValueDecoder:
     """ Interface expected of decoders. """
+
     @abstractmethod
     def encoded_len(self):
         """ The number of byte expected for in the encoding of this value.  """
@@ -352,6 +365,7 @@ class ForwardingDecoder(ValueDecoder):
     """ Decoder implementation that forwards to another decoder instance. This allows the encoding implementation to be changed
         at runtime. """
     decoder = None
+
     def __init__(self, decoder=None):
         if decoder: self.decoder = decoder
 
@@ -374,6 +388,7 @@ def make_default_mask(buf):
 
 class ValueEncoder:
     """ Interface expected of encoders. """
+
     @abstractmethod
     def encoded_len(self):
         """ The number of byte expected for in the encoding of this value.  """
@@ -401,10 +416,12 @@ class ValueEncoder:
         self._encode(value[1], buf_mask)
         return buf_value, buf_mask
 
-
-
     def _encode(self, value, buf):
         raise NotImplementedError
+
+    @staticmethod
+    def maskNone(cls, value):
+        return value or 0, -1 if value is not None else 0
 
 
 class ForwardingEncoder(ValueEncoder):
@@ -456,7 +473,17 @@ class ReadableObject(ValueObject, ValueDecoder):
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
     def write(self, value):
-        value = self.controller.write_value(self, value)
+        fn = self.controller.write_masked_value if self.is_masked_write(value) else self.controller.write_value
+        return fn(self, value)
+
+    def is_masked_write(self, value):
+        return False
+
+
+class MaskedWritableObject(WritableObject):
+    def is_masked_write(self, value):
+        return True
+
 
 
 class LongDecoder(ValueDecoder):
@@ -548,9 +575,9 @@ class ReadWriteUserObject(ReadWriteBaseObject, UserObject):
     pass
 
 
-
 class ReadWriteSystemObject(ReadWriteBaseObject):
     pass
+
 
 class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
     """ represents the unique ID for the controller that is stored on the controller.
@@ -575,6 +602,7 @@ def mask(value, byte_count):
     for x in range(0, byte_count):
         r = r << 8 | 0xFF
     return r
+
 
 class SystemTime(ReadWriteSystemObject):
     def encoded_len(self):
@@ -610,6 +638,7 @@ class SystemTime(ReadWriteSystemObject):
 class ObjectDefinition:
     """ The definition codec for an object. Converts between the byte array passed to the protocol and higher-level
         argument types used in python code. """
+
     @classmethod
     @abstractmethod
     def decode_definition(cls, data_block, controller):
@@ -677,6 +706,85 @@ class ReadWriteValue(ReadWriteBaseObject):
         self.write(v)
 
 
+class DynamicContainer(EmptyDefinition, UserObject, Container):
+    type_id = 4
+
+
+class ControllerLoopState(CommonEqualityMixin):
+    def __init__(self, enabled=None, log_period=None, period=None):
+        self.enabled = enabled
+        self.log_period = log_period  # range from 0..7. The log period is 0 if zero, else 2^(n-1)
+        self.period = period
+
+    @staticmethod
+    def log_periods():
+        return {x: 1 << (x - 1) if x else x for x in range(8)}
+
+    @staticmethod
+    def encoded_len():
+        return 3
+
+    def decode(self, buf):
+        self.enabled = (buf[0] & 0x08)!=0
+        self.log_period = buf[0] & 0x07
+        self.period = ShortDecoder().decode(buf[1:3])
+        return self
+
+    def encode_mask(self, buf_value, buf_mask):
+        flags = 0
+        flags_mask = 0
+        if self.log_period is not None:
+            flags |= (self.log_period & 0x7)
+            flags_mask |= 7
+        if self.enabled is not None:
+            flags |= 8 if self.enabled else 0
+            flags_mask |= 8
+        buf_value[0], buf_mask[0] = flags, flags_mask
+        buf_value[1:3] = ShortEncoder().encode(self.period or 0)
+        buf_mask[1:3] = ShortEncoder().encode(mask(self.period, 2))
+        return bytes(buf_value), bytes(buf_mask)
+
+
+class ControllerLoop(MaskedWritableObject, ReadWriteUserObject, ReadWriteValue):
+    """ Represents a control loop in the ControllerLoopContainer. """
+
+    def encoded_len(self):
+        return ControllerLoopState.encoded_len()
+
+    def _encode_mask(self, value:ControllerLoopState, buf_value, buf_mask):
+        value.encode_mask(buf_value, buf_mask)
+        return buf_value, buf_mask
+
+    def _decode(self, buf):
+        return ControllerLoopState().decode(buf)
+
+
+class ControllerLoopContainer(RootContainer):
+    def __init__(self, profile):
+        super().__init__(profile)
+        self.config_container = DynamicContainer(self.controller, self, 0)
+        self.configs = dict()
+
+    def configuration_for(self, o:ContainedObject)->ControllerLoop:
+        if o.container!=self:
+            raise ValueError()
+        return self.configurations[o.slot]
+
+    @property
+    def configurations(self):
+        """
+        :return: a dictionary mapping item slots to the ControllerLoop object that controls that loop.
+        """
+        return self.configs
+
+    def notify_added(self, obj:ContainedObject):
+        """ When an object is added, the controller also adds a config object to the config container. """
+        self.configs[obj.slot] = ControllerLoop(self.controller, self.config_container, obj.slot)
+
+    def notify_removed(self, obj:ContainedObject):
+        del self.configs[obj.slot]
+
+
 def fetch_dict(d:dict, k, generator):
     existing = d.get(k, None)
     if existing is None:
@@ -694,6 +802,7 @@ class BaseController(Controller):
         :param object_types:    The factory describing the object types available in the controller.
         """
         self._sysroot = SystemRootContainer(self)
+        # todo - populate system root with eystem objects
         self.connector = connector
         self.object_types = object_types
         self.profiles = dict()
@@ -788,7 +897,7 @@ class BaseController(Controller):
             self.current_profile = None
 
     def is_system_object(self, obj:ContainedObject):
-        return obj.root_container()==self._sysroot
+        return obj.root_container() == self._sysroot
 
     def _write_value(self, obj: WritableObject, value, fn):
         encoded = obj.encode(value)
@@ -808,6 +917,11 @@ class BaseController(Controller):
         obj._update_value(new_value)
         return new_value
 
+    def uninstantiate(self, id_chain):
+        o = self.object_at(id_chain)
+        o.container.notify_removed(o)  # notify the object's container that it has been removed
+        self.current_profile._remove(id_chain)
+
     def _delete_object_at(self, id_chain, optional=False):
         """
         :param id_chain:    The id chain of the object to delete
@@ -815,7 +929,7 @@ class BaseController(Controller):
             fail for a non-existent object.
         """
         self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
-        self.current_profile._remove(id_chain)
+        self.uninstantiate(id_chain)
 
     def create_object(self, obj_class, args=None, container=None, slot=None) -> InstantiableObject:
         """
@@ -849,6 +963,7 @@ class BaseController(Controller):
         obj = obj_class(self, container, id_chain[-1])
         obj.definition = args
         self.current_profile._add(id_chain, obj)
+        container.notify_added(obj)
         return obj
 
     @staticmethod
