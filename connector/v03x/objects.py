@@ -81,6 +81,7 @@ class IndirectValue(ReadWriteUserObject):
     def encode(self, value):
         return self.definition.encode(value)
 
+
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
     # that are pre-instantiated may still need to be referred to by type. Will tackle this when needed.
@@ -99,14 +100,18 @@ class BuiltInObjectTypes:
 
 
 class MixinController(BaseController):
-    def __init__(self, connector):
-        super().__init__(connector, BuiltInObjectTypes)
+    def __init__(self, connector, objectTypes=BuiltInObjectTypes):
+        super().__init__(connector, objectTypes)
 
     def create_current_ticks(self, container=None, slot=None) -> CurrentTicks:
         return self.create_object(CurrentTicks, None, container, slot)
 
     def create_dynamic_container(self, container=None, slot=None) -> DynamicContainer:
         return self.create_object(DynamicContainer, None, container, slot)
+
+    def disconnect(self):
+        """ forces the underlying connection with the controller to be disconnected. """
+        self._connector.disconnect()
 
 
 class CrossCompileController(MixinController):

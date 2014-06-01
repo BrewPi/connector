@@ -176,13 +176,16 @@ class AsyncHandler:
 
 class BaseAsyncProtocolHandler:
     """
-    Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not dndefined
+    Wraps a conduit in an asynchronous request/response handler. The format for the requests and responses is not defined
     at this level, but the class takes care of registering requests sent along with a future response and associating
     incoming responses with the originating request.
 
     The primary method to use is async_request(r:Request) which asynchronously sends the request and fetches the
     response. The returned FutureResponse can be used by the caller to check if the response has arrived or wait
     for the response.
+
+    To handle asynchornous responses (with no originating request), use add_unmatched_response_handler(). Subclasses
+    may instead provide their own asynchronous handler methods that conform to the expected protocol.
     """
 
     def __init__(self, conduit: Conduit, matcher=None):

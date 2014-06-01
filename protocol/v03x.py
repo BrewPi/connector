@@ -3,6 +3,7 @@ from io import IOBase, BytesIO, BufferedIOBase
 from conduit.base import Conduit, DefaultConduit, ConduitStreamDecorator
 from protocol.async import BaseAsyncProtocolHandler, FutureResponse, Request, Response, ResponseSupport
 from protocol.version import VersionParser
+from support.events import EventHook
 
 
 def unsigned_byte(val):
@@ -349,7 +350,8 @@ class Commands:
     write_system_value = 0x10
     write_masked_value = 0x11
     write_system_masked_value = 0x12
-
+    async_flag = 0x80
+    async_log_values = async_flag | log_values
 
 # A note to maintainers: These ResponseDecoder objects have to be written carefully - the
 # _parse and decode_response methods have to match exactly the command request and command response
@@ -362,7 +364,6 @@ class ResponseDecoder(metaclass=ABCMeta):
     """  parses the response data into the data block corresponding to the original request
          and decodes the data block that is the additional response data
     """
-
     def decode_request(self, cmd_id: int, stream: BufferedIOBase):
         """ read the portion of the response that corresponds to the original request. """
         buf = CaptureBufferedReader(stream)
@@ -379,24 +380,27 @@ class ResponseDecoder(metaclass=ABCMeta):
 
     def _read_id_chain(self, buf):
         result = bytearray()
-        while buf.peek_next_byte() >= 0:
+        while self.has_data(buf):
             b = self._read_byte(buf)
             result.append(b & 0x7F)
             if b < 0x80:
                 break
         return result
 
-    def _read_vardata(self, stream, scale=1):
-        """ decodes variable length data from the stream. The first byte is the number of bytes in the data block,
-            followed by N bytes that make up the data block.
-        """
-        size = self._read_byte(stream) * scale
+    def _read_block(self, size, stream):
         buf = bytearray(size)
         idx = 0
         while idx < size:
             buf[idx] = self._read_byte(stream)
             idx += 1
         return bytes(buf)
+
+    def _read_vardata(self, stream, scale=1):
+        """ decodes variable length data from the stream. The first byte is the number of bytes in the data block,
+            followed by N bytes that make up the data block.
+        """
+        size = self._read_byte(stream) * scale
+        return self._read_block(size, stream)
 
     @staticmethod
     def _read_signed_byte(stream):
@@ -430,10 +434,13 @@ class ResponseDecoder(metaclass=ABCMeta):
     def _read_remainder(self, stream):
         """ reads the remaining bytes in the stream into a list """
         values = []
-        while stream.peek_next_byte() >= 0:  # has more data
+        while self.has_data(stream):
             value = self._read_byte(stream)
             values.append(value)
         return values
+
+    def has_data(self, stream):
+        return stream.peek_next_byte() >= 0
 
     @abstractmethod
     def decode_response(self, stream):
@@ -442,7 +449,7 @@ class ResponseDecoder(metaclass=ABCMeta):
 
 class ReadValueResponseDecoder(ResponseDecoder):
     def _parse(self, buf):
-        # read the id of the objec to read
+        # read the id of the object to read
         self._read_id_chain(buf)
         self._read_byte(buf)  # length of data expected
 
@@ -575,20 +582,42 @@ class LogValuesResponseDecoder(ResponseDecoder):
             self._read_id_chain(buf)  # the id
 
     def decode_response(self, stream):
-        """ Returns the new profile id or negative on error. """
         return self._read_remainder(stream)
 
 
 class ReadSystemValueCommandDecoder(ReadValueResponseDecoder):
-    pass
+    """ Writing system values has the same format as writing user values. """
 
 
 class WriteSystemValueCommandDecoder(WriteValueResponseDecoder):
-    pass
+    """ Writing system values has the same format as writing user values. """
 
 
 class ListSystemValuesCommandDecoder(ListProfileResponseDecoder):
-    pass
+    """ Listing system values and listing user values (a profile) have the same format. """
+
+
+class AsyncLogValueDecoder(LogValuesResponseDecoder):
+    """ Decodes the asynchronous logged values. This is simlar to a regular logged value, although the
+        flags and id_chain of the logged container are considered part of the response, rather than the request.
+        The decided value for the response is a tuple (time, id_chain, values). The values is a list of tuples
+         (id_chain, value) for each value logged in the hierarchy. """
+    def _parse(self, buf):
+        pass        # command byte already parsed. That's all there is.
+
+    def decode_response(self, stream):
+        id_chain = []
+        time = self._read_block(4, stream)
+        flags = self._read_byte(stream)             # flags - indicate if there is a id chain
+        if flags:
+            id_chain = self._read_id_chain(stream)  # the id of the container
+        # following this is a sequence of id_chain, len, data[] until the end of stream
+        values = []
+        while self.has_data(stream):
+            log_id_chain = self._read_id_chain(stream)
+            log_data = self._read_vardata(stream)
+            values.append((log_id_chain, log_data))
+        return time, id_chain, values
 
 
 class ChunkedHexEncodedConduit(ConduitStreamDecorator):
@@ -625,9 +654,17 @@ def interleave(*args):
     """
     return bytes([x for z in zip(*args) for x in z])
 
+class ControllerProtocolV030AsyncResponseHandler:
+    def __init__(self, controller):
+        self.controller = controller
+
+    def __call__(self, *args, **kwargs):
+        for x in args:
+            self.controller.handle_async_response(x)
 
 class ControllerProtocolV030(BaseAsyncProtocolHandler):
-    """ Implements the v2 hex-encoded binary protocol. """
+    """ Implements the v0.3.0 hex-encoded binary protocol.
+    """
 
     decoders = {
         Commands.read_value: ReadValueResponseDecoder,
@@ -646,7 +683,8 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         Commands.read_system_value: ReadSystemValueCommandDecoder,
         Commands.write_system_value: WriteSystemValueCommandDecoder,
         Commands.write_masked_value: WriteMaskedValueResponseDecoder,
-        Commands.write_system_masked_value: WriteSystemMaskedValueResponseDecoder
+        Commands.write_system_masked_value: WriteSystemMaskedValueResponseDecoder,
+        Commands.async_log_values: AsyncLogValueDecoder
     }
 
     def __init__(self, conduit: Conduit,
@@ -658,6 +696,21 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         self.output = conduit.output
         self.next_chunk_input = next_chunk_input
         self.next_chunk_output = next_chunk_output
+        self.add_unmatched_response_handler(ControllerProtocolV030AsyncResponseHandler(self))
+        self.async_log_handlers = EventHook()
+        self.async_events = EventHook()
+
+    @staticmethod
+    def command_id_from_response(response: Response):
+        """ The resposne key is the original request data. The first byte is the command id. """
+        return response.response_key[0]
+
+    def handle_async_response(self, response: Response):
+        cmd_id = self.command_id_from_response(response)
+        if cmd_id==Commands.async_log_values:
+            self.async_log_handlers.fire(response)
+        else:
+            self.async_events.fire(response)
 
     def read_value(self, id_chain, expected_len=0) -> FutureResponse:
         """ requests the value of the given object id is read. """

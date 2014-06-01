@@ -1,5 +1,5 @@
 from hamcrest import assert_that, equal_to, is_
-from connector.v03x.controller import Controller, Container, RootContainer
+from connector.v03x.controller import Controller, Container, RootContainer, SystemProfile
 
 __author__ = 'mat'
 
@@ -11,7 +11,8 @@ class ControllerTest(unittest.TestCase):
     """
     def test_containers_equal(self):
         c = Controller()
-        r = RootContainer(c)
+        p = SystemProfile(c, 1)
+        r = RootContainer(p)
         c1 = Container(c, r, 0)
         c2 = Container(c, r, 0)
         assert_that(c1, is_(equal_to(c2)))

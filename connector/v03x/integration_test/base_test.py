@@ -120,13 +120,13 @@ class BaseControllerTestHelper(unittest.TestCase):
     def create_connection(self, load_profile=False):
         # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
         self.connector.connect()
-        self.protocol = self.controller.connector.protocol  # so we can access the protocol when the conduit is disconnected
+        self.protocol = self.connector.protocol  # so we can access the protocol when the conduit is disconnected
         self.protocol.start_background_thread()
         if self.initialize_id:
             self.controller.initialize(self.assign_id(), load_profile)
 
     def discard_connection(self):
-        self.c.connector.disconnect()
+        self.c.disconnect()
         self.protocol.stop_background_thread()
 
     def tearDown(self):
