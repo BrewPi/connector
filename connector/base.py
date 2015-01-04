@@ -22,6 +22,8 @@ class ConnectionNotAvailableError(ConnectorError):
 
 
 class Connector():
+    """ A connector provides the protocol (and conduit the protocol is transported over)
+    """
     @property
     @abstractmethod
     def protocol(self):
@@ -51,7 +53,7 @@ class Connector():
     @abstractmethod
     def available(self):
         """ Determines if the underlying resource for this connector is available.
-        :return: True if the resource is available.
+        :return: True if the resource is available and can be connected to.
         :rtype: bool
         """
         return False
@@ -102,6 +104,8 @@ class ConnectorMonitor:
 
 
 class AbstractConnector(Connector):
+    """ Manages the connection cycle, using a protocol sniffer to determine the protocol
+        of the connected device. """
     def __init__(self):
         self.changed = EventHook()
         self._base_conduit = None

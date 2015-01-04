@@ -9,7 +9,11 @@ logger = logging.getLogger(__name__)
 
 
 class ResourceEvent:
-    """ Notification that a conduit is available. """
+    """ Notification that a conduit is available.
+    :param source   The ResourceWatchdog that posted this event
+    :param resource The resource that is available. It has a least a open() method to retrieve the conduit
+        and a name property.
+    """
     def __init__(self, source, resource):
         self.source = source
         self.resource = resource
@@ -24,7 +28,7 @@ class ResourceUnavailableEvent(ResourceEvent):
 
 
 class ResourceWatchdog:
-    """ Monitors serial ports, and posts notification when a new device is available. """
+    """ Monitors resources and posts notification when a new device is available. """
     previous = {}
     connections = {}
     excluded = {}
@@ -33,21 +37,20 @@ class ResourceWatchdog:
     def __init__(self, connection_factory):
         """
         :param connection_factory:  A factory to create a connection from a given (port, device) tuple.
-            The connection should support the context manager protocol (See PEP 343)
+            The created connection should support the context manager protocol (See PEP 343)
         :type connection_factory: callable
         """
         self.listeners = EventHook()
         self.factory = connection_factory
 
-    def is_allowed(self, port, device):
-        """ @param port: a tuple of (port, name, details) for a device connected to a serial port. """
-        return not self.excluded.get(port, None) and not self.excluded.get(device, None)
+    def is_allowed(self, key, device):
+        return not self.excluded.get(key, None) and not self.excluded.get(device, None)
 
-    def _attach(self, port, device):
-        connection = self.factory(port, device)
+    def _attach(self, key, device):
+        connection = self.factory(key, device)
         try:
             connection.__enter__()
-            self.connections[port] = connection
+            self.connections[key] = connection
             return connection
         except Exception as e:
             logger.info(e)

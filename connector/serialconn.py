@@ -59,6 +59,8 @@ class SerialConnector(AbstractConnector):
 
 
 class SerialConnectorFactory:
+    """ The factory used to create a connection
+    """
     def __init__(self, port, device):
         s = Serial()
         s.setPort(port)
@@ -88,7 +90,9 @@ def log_connection_events(event):
     if isinstance(event, ResourceUnavailableEvent):
         logger.info("Disconnected device on %s" % event.source)
 
+
 def monitor():
+    """ A helper function to monitor serial ports for manual testing. """
     logger.setLevel(logging.INFO)
     logger.addHandler(logging.StreamHandler())
     logger.info(serial_port_info())

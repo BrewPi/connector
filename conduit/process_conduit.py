@@ -1,7 +1,9 @@
 import subprocess
 from conduit.base import DefaultConduit
+from conduit.watchdog import ResourceWatchdog
 
 __author__ = 'mat'
+
 
 
 class ProcessConduit(DefaultConduit):
@@ -39,5 +41,14 @@ class ProcessConduit(DefaultConduit):
             self.process = None
 
 
+class ProcessWatchdog(ResourceWatchdog):
+    """ Monitors a folder for executables that can be instantiated. """
 
+    def __init__(self, dir, pattern, connection_factory):
+        super().__init__(connection_factory)
+        self.dir = dir
+        self.pattern = pattern
+
+    def is_allowed(self, key, device):
+        return self.pattern.match(key) and super().is_allowed(key, device)
 

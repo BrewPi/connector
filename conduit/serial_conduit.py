@@ -1,3 +1,7 @@
+"""
+Implements a conduit over a serial port.
+"""
+
 from __future__ import absolute_import
 import logging
 import re
@@ -5,6 +9,7 @@ from serial import Serial
 from serial.tools import list_ports
 from conduit.watchdog import ResourceWatchdog
 from connector import base
+
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +63,7 @@ known_devices = {
     (r"Spark Core.*Arduino.*", r"USB VID\:PID=1D50\:607D.*"): "Spark Core"
 }
 
+
 def matches(text, regex):
     return re.match(regex, text)
 
@@ -69,13 +75,20 @@ def is_recognised_device(p):
             return True         # to name and desc on windows
     return False
 
+
 def find_arduino_ports(ports):
     for p in ports:
         if is_recognised_device(p):
             yield p[0]
 
+
 def serial_port_info():
+    """
+    :return: a tuple of serial port info tuples,
+    :rtype:
+    """
     return tuple(list_ports.comports())
+
 
 def detect_port(port):
     if port == "auto":
@@ -85,6 +98,7 @@ def detect_port(port):
             raise ValueError("Could not find arduino-compatible device in available ports. %s" % repr(all_ports))
         return ports[0]
     return port
+
 
 def configure_serial_for_device(s, d):
     """ configures the serial connection for the given device.
@@ -96,10 +110,14 @@ def configure_serial_for_device(s, d):
 
 
 class SerialWatchdog(ResourceWatchdog):
+    """ Monitors local serial ports for known devices. """
 
     def check(self):
         """ Re-evaluates the available serial ports. """
         self.update_ports(tuple(serial_port_info()))
+
+    def is_allowed(self, key, device):
+        return super().is_allowed(key, device) and is_recognised_device(device);
 
     def update_ports(self, all_ports):
         """ computes the available serial port/device map from a list of tuples (port, name, desc). """
