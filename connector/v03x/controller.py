@@ -25,21 +25,21 @@ class ProfileNotActiveError(FailedOperationError):
 class CommonEqualityMixin(object):
     """ define a simple equals implementation for these value objects. """
 
-    def __eq__(self, other):
-        return hasattr(other, '__dict__') and isinstance(other, self.__class__) \
-            and self._dicts_equal(other)
+    def __eq__(Self, other):
+        return hasattr(other, '__dict__') and isinstance(other, Self.__class__) \
+            and Self._dicts_equal(other)
 
-    def __str__(self):
-        return super().__str__() + ':' + str(self.__dict__)
+    def __str__(Self):
+        return super().__str__() + ':' + str(Self.__dict__)
 
 
-    def _dicts_equal(self, other):
+    def _dicts_equal(Self, other):
         global seen
-        p = (self, other)
+        p = (Self, other)
         if p in seen:
             raise ValueError("recursive call " + p)
 
-        d1 = self.__dict__
+        d1 = Self.__dict__
         d2 = other.__dict__
         try:
             seen.append(p)
@@ -48,8 +48,8 @@ class CommonEqualityMixin(object):
             seen.pop()
         return result
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def __ne__(Self, other):
+        return not Self.__eq__(other)
 
 
 class BaseControllerObject(CommonEqualityMixin, EventHook):
@@ -58,18 +58,18 @@ class BaseControllerObject(CommonEqualityMixin, EventHook):
     (Any state other than the identifier is cached state and may be used in preference to fetching the
     state from the external controller.)"""
 
-    def __init__(self, controller):
+    def __init__(Self, controller):
         super().__init__()
-        super(EventHook, self).__init__()
-        self._controller = controller
+        super(EventHook, Self).__init__()
+        Self._controller = controller
 
     @property
-    def controller(self):
-        return self._controller
+    def controller(Self):
+        return Self._controller
 
     @controller.setter
-    def controller(self, controller):
-        self._controller = controller
+    def controller(Self, controller):
+        Self._controller = controller
 
 
 class ObjectReference(BaseControllerObject):
@@ -77,28 +77,28 @@ class ObjectReference(BaseControllerObject):
         The reference describes the object's location (container/slot)
         the class of the object and the arguments used to configure it. """
 
-    def __init__(self, controller, container, slot, obj_class, args):
+    def __init__(Self, controller, container, slot, obj_class, args):
         super().__init__(controller)
-        self.container = container
-        self.slot = slot
-        self.obj_class = obj_class
-        self.args = args
+        Self.container = container
+        Self.slot = slot
+        Self.obj_class = obj_class
+        Self.args = args
 
     @property
-    def id_chain(self):
-        return self.container.id_chain_for(self.slot)
+    def id_chain(Self):
+        return Self.container.id_chain_for(Self.slot)
 
-    def __str__(self):
-        return "%s(%r)" % (self.__class__, self.__dict__)
+    def __str__(Self):
+        return "%s(%r)" % (Self.__class__, Self.__dict__)
 
-    def __repr__(self):
-        return self.__str__()
+    def __repr__(Self):
+        return Self.__str__()
 
 
 class ObjectEvent():
-    def __init__(self, source, data=None):
-        self.source = source
-        self.data = data
+    def __init__(Self, source, data=None):
+        Self.source = source
+        Self.data = data
 
 
 class ObjectCreatedEvent(ObjectEvent):
@@ -112,26 +112,26 @@ class ObjectDeletedEvent(ObjectEvent):
 class ControllerObject(BaseControllerObject):
     @property
     @abstractmethod
-    def id_chain(self):
+    def id_chain(Self):
         """  all controller objects have an id chain that describes their location and id in the system. """
         raise NotImplementedError
 
-    def file_object_event(self, type, data=None):
-        self.fire(type(self, data))
+    def file_object_event(Self, type, data=None):
+        Self.fire(type(Self, data))
 
 
 class ContainerTraits:
     @abstractmethod
-    def id_chain_for(self, slot):
+    def id_chain_for(Self, slot):
         raise NotImplementedError
 
-    def item(self, slot):
+    def item(Self, slot):
         """
         Fetches the item at this container's location.
         """
         raise NotImplementedError
 
-    def root_container(self):
+    def root_container(Self):
         raise NotImplementedError
 
 
@@ -144,9 +144,9 @@ class TypedObject:
 
 
 class InstantiableObject(ControllerObject, TypedObject):
-    def __init__(self, controller):
+    def __init__(Self, controller):
         super().__init__(controller)
-        self.definition = None
+        Self.definition = None
 
     @classmethod
     @abstractmethod
@@ -160,12 +160,12 @@ class InstantiableObject(ControllerObject, TypedObject):
         """ encodes the construction parameters for the object into a data block """
         raise NotImplementedError
 
-    def delete(self):
+    def delete(Self):
         """ deletes the corresponding object on the controller then detaches this proxy from the controller. """
-        if self.controller:
-            self.controller.delete_object(self)
-            self.controller = None
-            self.fire(ObjectDeletedEvent(self))
+        if Self.controller:
+            Self.controller.delete_object(Self)
+            Self.controller = None
+            Self.fire(ObjectDeletedEvent(Self))
 
 
 class ContainedObject(ControllerObject):
@@ -173,7 +173,7 @@ class ContainedObject(ControllerObject):
         the object is in. The full id_chain is the container's id plus the object's slot in the container.
     """
 
-    def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
+    def __init__(Self, controller: Controller, container: ContainerTraits, slot: int):
         # todo - push the profile up to the root container and store controller in that.
         """
             :param controller:  The controller containing this object.
@@ -181,122 +181,125 @@ class ContainedObject(ControllerObject):
             :param slot:        The slot in the container this object is stored at
             """
         super().__init__(controller)
-        self.container = container
-        self.slot = slot
+        Self.container = container
+        Self.slot = slot
 
     @property
-    def id_chain(self):
+    def id_chain(Self):
         """ Retrieves the id_chain for this object as a iterable of integers.
         :return: The id-chain for this object
         :rtype:
         """
-        return self.container.id_chain_for(self.slot)
+        return Self.container.id_chain_for(Self.slot)
 
-    def root_container(self):
-        return self.container.root_container()
+    def parent(Self):
+        return Self.container
+
+    def root_container(Self):
+        return Self.container.root_container()
 
 
 class UserObject(InstantiableObject, ContainedObject):
-    def __init__(self, controller: Controller, container: ContainerTraits, slot: int):
-        super(InstantiableObject, self).__init__(controller, container, slot)
-        super(ContainedObject, self).__init__(controller)
+    def __init__(Self, controller: Controller, container: ContainerTraits, slot: int):
+        super(InstantiableObject, Self).__init__(controller, container, slot)
+        super(ContainedObject, Self).__init__(controller)
 
 
 class Container(ContainedObject, ContainerTraits):
     """ A generic non-root container. """
 
-    def __init__(self, controller, container, slot):
+    def __init__(Self, controller, container, slot):
         super().__init__(controller, container, slot)
         items = {}
 
-    def id_chain_for(self, slot):
-        return self.id_chain + (slot,)
+    def id_chain_for(Self, slot):
+        return Self.id_chain + (slot,)
 
-    def item(self, slot):
-        return self.items[slot]
+    def item(Self, slot):
+        return Self.items[slot]
 
-    def root_container(self):
-        return self.container.root_container()
+    def root_container(Self):
+        return Self.container.root_container()
 
 
 class OpenContainerTraits:
     @abstractmethod
-    def add(self, obj:ContainedObject):
+    def add(Self, obj:ContainedObject):
         raise NotImplementedError
 
-    def remove(self, obj:ContainedObject):
+    def remove(Self, obj:ContainedObject):
         raise NotImplementedError
 
-    def notify_added(self, obj:ContainedObject):
+    def notify_added(Self, obj:ContainedObject):
         """ Notification from the controller that this object will be added to this container. This is called
             after the object has been added in the controller
             """
 
-    def notify_removed(self, obj:ContainedObject):
+    def notify_removed(Self, obj:ContainedObject):
         """ Notification from the controller that this object will be removed from this container. This is called
             prior to removing the object from the container in the controller and clearing the container member in the
             contained object. """
 
 
 class RootContainerTraits(ContainerTraits):
-    def id_chain_for(self, slot):
+    def id_chain_for(Self, slot):
         return slot,
 
     @property
-    def id_chain(self):
+    def id_chain(Self):
         """ Returns the id chain for this root container, which is an empty list.
         :return: An empty list
         :rtype:
         """
         return tuple()
 
-    def root_container(self):
-        return self
+    def root_container(Self):
+        return Self
 
 
 class SystemProfile(BaseControllerObject):
     """ represents a system profile - storage for a root container and contained objects. """
 
-    def __init__(self, controller, profile_id):
+    def __init__(Self, controller, profile_id):
         super().__init__(controller)
-        self.profile_id = profile_id
-        self._objects = dict()  # map of object id to object. These objects are proxy objects to
+        Self.profile_id = profile_id
+        Self._objects = dict()  # map of object id to object. These objects are proxy objects to
         # objects in the controller
 
-    def __eq__(self, other):
-        return other is self or \
+    def __eq__(Self, other):
+        return other is Self or \
                (type(other) == type(
-                   self) and self.profile_id == other.profile_id and self.controller is other.controller)
+                   Self) and Self.profile_id == other.profile_id and Self.controller is other.controller)
 
-    def refresh(self, obj):
-        return self.object_at(obj.id_chain)
+    def refresh(Self, obj):
+        return Self.object_at(obj.id_chain)
 
-    def activate(self):
-        self.controller.activate_profile(self)
+    def activate(Self):
+        Self.controller.activate_profile(Self)
 
-    def deactivate(self):
-        if self.is_active:
-            self.controller.activate_profile(None)
+    def deactivate(Self):
+        if Self.is_active:
+            Self.controller.activate_profile(None)
 
-    def delete(self):
+    def delete(Self):
         # todo - all contained objects should refer to the profile they are contained in, and
-        self.controller.delete_profile(self)
+        Self.controller.delete_profile(Self)
 
     @property
-    def root(self):
-        self._check_active()
-        return self._objects[tuple()]
+    def root(Self):
+        Self._check_active()
+        return Self._objects[tuple()]
 
-    def _check_active(self):
-        if not self.is_active:
+    def _check_active(Self):
+        if not Self.is_active:
             raise ProfileNotActiveError()
 
     @property
-    def is_active(self):
-        return self.controller.is_active_profile(self)
+    def is_active(Self):
+        return Self.controller.is_active_profile(Self)
 
-    def object_at(self, id_chain, optional=False):
-        obj = self._objects.get(tuple(id_chain))
+    def object_at(Self, id_chain, optional=False):
+        obj = Self._objects.get(tuple(id_chain))
         if not optional and obj is None:
             raise ValueError("no such object for id_chain %s " % id_chain)
         return obj
@@ -305,42 +308,42 @@ class SystemProfile(BaseControllerObject):
     def id_for(cls, p):
         return p.profile_id if p else -1
 
-    def _deactivate(self):
+    def _deactivate(Self):
         """  This profile is no longer active, so detach all objects from the controller to prevent any unintended
              access.
         """
-        for x in self._objects.values():
+        for x in Self._objects.values():
             x.controller = None  # make them zombies
-        self._objects.clear()
+        Self._objects.clear()
 
-    def _activate(self):
+    def _activate(Self):
         """
         Called by the controller to activate this profile. The profile instantiates the stub root container
         and the other stub objects currently in the profile.
         """
-        self._add(ControllerLoopContainer(self))
-        for ref in self.controller.list_objects(self):
-            self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
+        Self._add(ControllerLoopContainer(Self))
+        for ref in Self.controller.list_objects(Self):
+            Self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
 
-    def _add(self, obj:ControllerObject):
-        self._objects[tuple(obj.id_chain)] = obj
+    def _add(Self, obj:ControllerObject):
+        Self._objects[tuple(obj.id_chain)] = obj
 
-    def _remove(self, id_chain):
-        self._objects.pop(id_chain, None)
+    def _remove(Self, id_chain):
+        Self._objects.pop(id_chain, None)
 
 
 class RootContainer(RootContainerTraits, OpenContainerTraits, ControllerObject):
     """ A root container is the top-level container in a profile."""
     # todo - add the profile that this object is contained in
-    def __init__(self, profile: SystemProfile):
+    def __init__(Self, profile: SystemProfile):
         super().__init__(profile.controller)
-        self.profile = profile
+        Self.profile = profile
 
 
 class SystemRootContainer(RootContainerTraits, ControllerObject):
     """ Represents the container for system objects. """
 
-    def __init__(self, controller):
+    def __init__(Self, controller):
         super().__init__(controller)
 
 
@@ -348,15 +351,15 @@ class ValueDecoder:
     """ Interface expected of decoders. """
 
     @abstractmethod
-    def encoded_len(self):
+    def encoded_len(Self):
         """ The number of byte expected for in the encoding of this value.  """
         raise NotImplementedError
 
-    def decode(self, buf):
-        return self._decode(buf)
+    def decode(Self, buf):
+        return Self._decode(buf)
 
     @abstractmethod
-    def _decode(self, buf):
+    def _decode(Self, buf):
         """ Decodes a buffer into the value for this object. """
         raise NotImplementedError
 
@@ -366,14 +369,14 @@ class ForwardingDecoder(ValueDecoder):
         at runtime. """
     decoder = None
 
-    def __init__(self, decoder=None):
-        if decoder: self.decoder = decoder
+    def __init__(Self, decoder=None):
+        if decoder: Self.decoder = decoder
 
-    def encoded_len(self):
-        return self.decoder.encoded_len()
+    def encoded_len(Self):
+        return Self.decoder.encoded_len()
 
-    def decode(self, buf):
-        return self.decoder.decode(buf)
+    def decode(Self, buf):
+        return Self.decoder.decode(buf)
 
 
 def make_default_mask(buf):
@@ -390,33 +393,33 @@ class ValueEncoder:
     """ Interface expected of encoders. """
 
     @abstractmethod
-    def encoded_len(self):
+    def encoded_len(Self):
         """ The number of byte expected for in the encoding of this value.  """
         raise NotImplementedError
 
-    def encode(self, value):
+    def encode(Self, value):
         """ Encodes an object into a buffer. """
-        buf = bytearray(self.encoded_len())
-        return bytes(self._encode(value, buf))
+        buf = bytearray(Self.encoded_len())
+        return bytes(Self._encode(value, buf))
 
-    def encode_masked(self, value):
+    def encode_masked(Self, value):
         """ Encodes a tuple representing a value and a mask into a a pair of byte buffers encoding the value and the
             write mask.
         """
-        buf, mask = self._encode_mask(value, bytearray(self.encoded_len()), bytearray(self.encoded_len()))
+        buf, mask = Self._encode_mask(value, bytearray(Self.encoded_len()), bytearray(Self.encoded_len()))
         return bytes(buf), bytes(mask)
 
-    def _encode_mask(self, value, buf_value, buf_mask):
+    def _encode_mask(Self, value, buf_value, buf_mask):
         """
         :param value: the value and mask to encode
         :param bufs: The buffer to encode the value into
         :return: a tuple of the encoded value and encoded mask.
         """
-        self._encode(value[0], buf_value)
-        self._encode(value[1], buf_mask)
+        Self._encode(value[0], buf_value)
+        Self._encode(value[1], buf_mask)
         return buf_value, buf_mask
 
-    def _encode(self, value, buf):
+    def _encode(Self, value, buf):
         raise NotImplementedError
 
     @staticmethod
@@ -429,126 +432,126 @@ class ForwardingEncoder(ValueEncoder):
         at runtime. """
     encoder = None
 
-    def __init__(self, encoder=None):
-        if encoder: self.encoder = encoder
+    def __init__(Self, encoder=None):
+        if encoder: Self.encoder = encoder
 
-    def encoded_len(self):
-        return self.encoder.encoded_len()
+    def encoded_len(Self):
+        return Self.encoder.encoded_len()
 
-    def encode(self, value):
-        return self.encoder.encode(value)
+    def encode(Self, value):
+        return Self.encoder.encode(value)
 
-    def encode_masked(self, value):
-        return self.encoder.encode_masked(value)
+    def encode_masked(Self, value):
+        return Self.encoder.encode_masked(value)
 
 
 class ValueChangedEvent(ObjectEvent):
-    def __init__(self, source, before, after):
+    def __init__(Self, source, before, after):
         super().__init__(source, (before, after))
 
-    def before(self):
-        return self.data[0]
+    def before(Self):
+        return Self.data[0]
 
-    def after(self):
-        return self.data[1]
+    def after(Self):
+        return Self.data[1]
 
 
 class ValueObject(ContainedObject):
-    def __init__(self, controller, container, slot):
+    def __init__(Self, controller, container, slot):
         super().__init__(controller, container, slot)
-        self.previous = None
+        Self.previous = None
 
-    def _update_value(self, new_value):
-        p = self.previous
-        self.previous = new_value
+    def _update_value(Self, new_value):
+        p = Self.previous
+        Self.previous = new_value
         if p != new_value:
-            self.fire(ValueChangedEvent(self, p, new_value))
+            Self.fire(ValueChangedEvent(Self, p, new_value))
         return new_value
 
 
 class ReadableObject(ValueObject, ValueDecoder):
-    def read(self):
-        return self.controller.read_value(self)
+    def read(Self):
+        return Self.controller.read_value(Self)
 
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
-    def write(self, value):
-        fn = self.controller.write_masked_value if self.is_masked_write(value) else self.controller.write_value
-        return fn(self, value)
+    def write(Self, value):
+        fn = Self.controller.write_masked_value if Self.is_masked_write(value) else Self.controller.write_value
+        return fn(Self, value)
 
-    def is_masked_write(self, value):
+    def is_masked_write(Self, value):
         return False
 
 
 class MaskedWritableObject(WritableObject):
-    def is_masked_write(self, value):
+    def is_masked_write(Self, value):
         return True
 
 
 class UnsignedLongDecoder(ValueDecoder):
-    def _decode(self, buf):
+    def _decode(Self, buf):
         return ((((buf[3] * 256) + buf[2]) * 256) + buf[1]) * 256 + buf[0]
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 2
 
 
 class LongDecoder(ValueDecoder):
-    def _decode(self, buf):
+    def _decode(Self, buf):
         """ decodes a little-endian encoded 4 byte value. """
         return ((((signed_byte(buf[3]) * 256) + buf[2]) * 256) + buf[1]) * 256 + buf[0]
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 4
 
 
 class UnsignedShortDecoder(ValueDecoder):
-    def _decode(self, buf):
+    def _decode(Self, buf):
         return ((buf[1]) * 256) + buf[0]
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 2
 
 
 class ShortEncoder(ValueEncoder):
-    def _encode(self, value, buf):
+    def _encode(Self, value, buf):
         if value < 0:
             value += 64 * 1024
         buf[1] = unsigned_byte(int(value / 256))
         buf[0] = value % 256
         return buf
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 2
 
 
 class ShortDecoder(ValueDecoder):
-    def _decode(self, buf):
+    def _decode(Self, buf):
         return (signed_byte(buf[1]) * 256) + buf[0]
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 2
 
 
 class ByteDecoder(ValueDecoder):
-    def _decode(self, buf):
+    def _decode(Self, buf):
         return signed_byte(buf[0])
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 1
 
 
 class ByteEncoder(ValueEncoder):
-    def _encode(self, value, buf):
+    def _encode(Self, value, buf):
         buf[0] = unsigned_byte(value)
         return buf
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 1
 
 
 class LongEncoder(ValueEncoder):
-    def _encode(self, value, buf):
+    def _encode(Self, value, buf):
         if value < 0:
             value += 1 << 32
         value = int(value)
@@ -557,20 +560,20 @@ class LongEncoder(ValueEncoder):
             value = int(value / 256)
         return buf
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 4
 
 
 class BufferDecoder(ValueDecoder):
-    def decode(self, buf):
+    def decode(Self, buf):
         return buf
 
 
 class BufferEncoder(ValueEncoder):
-    def encode(self, value):
+    def encode(Self, value):
         return bytes(value)
 
-    def encode_masked(self, value):
+    def encode_masked(Self, value):
         return bytes(value[0]), bytes(value[1])
 
 
@@ -590,7 +593,7 @@ class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
     """ represents the unique ID for the controller that is stored on the controller.
         This is stored as a single byte buffer. """
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return 1
 
 
@@ -612,28 +615,28 @@ def mask(value, byte_count):
 
 
 class SystemTime(ReadWriteSystemObject):
-    def encoded_len(self):
+    def encoded_len(Self):
         return 6
 
-    def set(self, time=None, scale=None):
+    def set(Self, time=None, scale=None):
         """ Sets the time and/or scale. If either value is None the existing value is used.
             Returns a tuple of (time,scale) for the current time and scale. (Same as read() method.)
         """
-        return self.controller.write_masked_value(self, (time, scale))
+        return Self.controller.write_masked_value(Self, (time, scale))
 
-    def _encode_mask(self, value, buf_value, buf_mask):
+    def _encode_mask(Self, value, buf_value, buf_mask):
         time, scale = value
-        buf_value = self._encode(value, buf_value)
+        buf_value = Self._encode(value, buf_value)
         mask_value = (mask(value[0], 4), mask(value[1], 2))
-        buf_mask = self._encode(mask_value, buf_mask)
+        buf_mask = Self._encode(mask_value, buf_mask)
         return buf_value, buf_mask
 
-    def _decode(self, buf):
+    def _decode(Self, buf):
         time = LongDecoder()._decode(buf[0:4])
         scale = ShortDecoder()._decode(buf[4:6])
         return time, scale
 
-    def _encode(self, value, buf):
+    def _encode(Self, value, buf):
         time, scale = value
         if time is not None:
             buf[0:4] = LongEncoder().encode(time)
@@ -705,12 +708,12 @@ class EncoderDecoderDefinition(ObjectDefinition):
 
 class ReadWriteValue(ReadWriteBaseObject):
     @property
-    def value(self):
-        return self.read()
+    def value(Self):
+        return Self.read()
 
     @value.setter
-    def value(self, v):
-        self.write(v)
+    def value(Self, v):
+        Self.write(v)
 
 
 class DynamicContainer(EmptyDefinition, UserObject, OpenContainerTraits, Container):
@@ -718,14 +721,14 @@ class DynamicContainer(EmptyDefinition, UserObject, OpenContainerTraits, Contain
 
 
 class ControllerLoopState(CommonEqualityMixin):
-    def __init__(self, enabled=None, log_period=None, period=None):
+    def __init__(Self, enabled=None, log_period=None, period=None):
         if log_period is not None and (log_period<0 or log_period>7):
             raise ValueError("invalid log period "+log_period)
         if period is not None and (period<0 or period>65535):
             raise ValueError("invalid period "+period)
-        self._enabled = enabled
-        self._log_period = log_period  # range from 0..7. The log period is 0 if zero, else 2^(n-1)
-        self._period = period
+        Self._enabled = enabled
+        Self._log_period = log_period  # range from 0..7. The log period is 0 if zero, else 2^(n-1)
+        Self._period = period
 
     @staticmethod
     def log_periods():
@@ -735,65 +738,65 @@ class ControllerLoopState(CommonEqualityMixin):
     def encoded_len():
         return 3
 
-    def decode(self, buf):
-        self._enabled = (buf[0] & 0x08) != 0
-        self._log_period = buf[0] & 0x07
-        self._period = ShortDecoder().decode(buf[1:3])
-        return self
+    def decode(Self, buf):
+        Self._enabled = (buf[0] & 0x08) != 0
+        Self._log_period = buf[0] & 0x07
+        Self._period = ShortDecoder().decode(buf[1:3])
+        return Self
 
-    def encode_mask(self, buf_value, buf_mask):
+    def encode_mask(Self, buf_value, buf_mask):
         flags = 0
         flags_mask = 0
-        if self._log_period is not None:
-            flags |= (self._log_period & 0x7)
+        if Self._log_period is not None:
+            flags |= (Self._log_period & 0x7)
             flags_mask |= 7
-        if self._enabled is not None:
-            flags |= 8 if self._enabled else 0
+        if Self._enabled is not None:
+            flags |= 8 if Self._enabled else 0
             flags_mask |= 8
         buf_value[0], buf_mask[0] = flags, flags_mask
-        buf_value[1:3] = ShortEncoder().encode(self._period or 0)
-        buf_mask[1:3] = ShortEncoder().encode(mask(self._period, 2))
+        buf_value[1:3] = ShortEncoder().encode(Self._period or 0)
+        buf_mask[1:3] = ShortEncoder().encode(mask(Self._period, 2))
         return bytes(buf_value), bytes(buf_mask)
 
 
 class ControllerLoop(MaskedWritableObject, ReadWriteUserObject, ReadWriteValue):
     """ Represents a control loop in the ControllerLoopContainer. """
 
-    def encoded_len(self):
+    def encoded_len(Self):
         return ControllerLoopState.encoded_len()
 
-    def _encode_mask(self, value:ControllerLoopState, buf_value, buf_mask):
+    def _encode_mask(Self, value:ControllerLoopState, buf_value, buf_mask):
         value.encode_mask(buf_value, buf_mask)
         return buf_value, buf_mask
 
-    def _decode(self, buf):
+    def _decode(Self, buf):
         return ControllerLoopState().decode(buf)
 
 
 class ControllerLoopContainer(RootContainer):
-    def __init__(self, profile):
+    def __init__(Self, profile):
         super().__init__(profile)
-        self.config_container = DynamicContainer(self.controller, self, 0)
-        self.configs = dict()
+        Self.config_container = DynamicContainer(Self.controller, Self, 0)
+        Self.configs = dict()
 
-    def configuration_for(self, o:ContainedObject) -> ControllerLoop:
-        if o.container != self:
+    def configuration_for(Self, o:ContainedObject) -> ControllerLoop:
+        if o.container != Self:
             raise ValueError()
-        return self.configurations[o.slot]
+        return Self.configurations[o.slot]
 
     @property
-    def configurations(self):
+    def configurations(Self):
         """
         :return: a dictionary mapping item slots to the ControllerLoop object that controls that loop.
         """
-        return self.configs
+        return Self.configs
 
-    def notify_added(self, obj:ContainedObject):
+    def notify_added(Self, obj:ContainedObject):
         """ When an object is added, the controller also adds a config object to the config container. """
-        self.configs[obj.slot] = ControllerLoop(self.controller, self.config_container, obj.slot)
+        Self.configs[obj.slot] = ControllerLoop(Self.controller, Self.config_container, obj.slot)
 
-    def notify_removed(self, obj:ContainedObject):
-        del self.configs[obj.slot]
+    def notify_removed(Self, obj:ContainedObject):
+        del Self.configs[obj.slot]
 
 
 def fetch_dict(d:dict, k, generator):
@@ -812,26 +815,26 @@ class BaseController(Controller):
        the application view of the external controller.
     """
 
-    def __init__(self, connector, object_types):
+    def __init__(Self, connector, object_types):
         """
         :param connector:       The connector that provides the v0.3.x protocol over a conduit.
         :param object_types:    The factory describing the object types available in the controller.
         """
-        self._sysroot = SystemRootContainer(self)
+        Self._sysroot = SystemRootContainer(Self)
         # todo - populate system root with system objects
-        self._connector = connector
-        self._object_types = object_types
-        self._profiles = dict()
-        self._current_profile = None
-        self.log_events = EventHook()
+        Self._connector = connector
+        Self._object_types = object_types
+        Self._profiles = dict()
+        Self._current_profile = None
+        Self.log_events = EventHook()
 
-    def handle_async_log_values(self, log_info):
+    def handle_async_log_values(Self, log_info):
         """ Handles the asynchronous logging values from each object.
             This method looks up the corresponding object in the hierarchy and uses that to decode the log data, converting
             it into a value. The value is then applied to the object.
         :param values: The log_info (id_chain, log_values)
         """
-        p = self._current_profile
+        p = Self._current_profile
         if p is not None:
             time, id_chain, values = log_info
             time = UnsignedLongDecoder().decode(time)
@@ -842,140 +845,140 @@ class BaseController(Controller):
                 if is_value_object(obj):
                     new_value = obj.decode(data)
                     object_values.append((obj, new_value))
-            self._update_objects(time, object_values)
-            self.log_events.fire((time, object_values))
+            Self._update_objects(time, object_values)
+            Self.log_events.fire((time, object_values))
 
-    def _update_objects(self, time, object_values):
+    def _update_objects(Self, time, object_values):
         for obj, value in object_values:
             obj._update_value(value)
 
 
-    def system_id(self) -> SystemID:
-        return SystemID(self, self._sysroot, 0)
+    def system_id(Self) -> SystemID:
+        return SystemID(Self, Self._sysroot, 0)
 
-    def system_time(self) -> SystemTime:
+    def system_time(Self) -> SystemTime:
         # todo - would be cleaner if we used cached instance rather than creating a new instance each time
-        return SystemTime(self, self._sysroot, 1)
+        return SystemTime(Self, Self._sysroot, 1)
 
-    def initialize(self, fetch_id:callable, load_profile=True):
-        self._profiles = dict()
-        self._current_profile = None
-        id_obj = self.system_id()
+    def initialize(Self, fetch_id:callable, load_profile=True):
+        Self._profiles = dict()
+        Self._current_profile = None
+        id_obj = Self.system_id()
         current_id = id_obj.read()
         if int(current_id[0]) == 0xFF:
             current_id = fetch_id()
             id_obj.write(current_id)
         if load_profile:
-            self._set_current_profile(self.active_and_available_profiles()[0])
-        self.p.async_log_handlers += lambda x: self.handle_async_log_values(x.value)
+            Self._set_current_profile(Self.active_and_available_profiles()[0])
+        Self.p.async_log_handlers += lambda x: Self.handle_async_log_values(x.value)
         return current_id
 
-    def full_erase(self):
-        available = self.active_and_available_profiles()
+    def full_erase(Self):
+        available = Self.active_and_available_profiles()
         for p in available[1]:
-            self.delete_profile(p)
+            Self.delete_profile(p)
 
-    def read_value(self, obj: ReadableObject):
-        fn = self.p.read_system_value if self.is_system_object(obj) else self.p.read_value
-        data = self._fetch_data_block(fn, obj.id_chain, obj.encoded_len())
+    def read_value(Self, obj: ReadableObject):
+        fn = Self.p.read_system_value if Self.is_system_object(obj) else Self.p.read_value
+        data = Self._fetch_data_block(fn, obj.id_chain, obj.encoded_len())
         return obj.decode(data)
 
-    def write_value(self, obj: WritableObject, value):
-        fn = self.p.write_system_value if self.is_system_object(obj) else self.p.write_value
-        return self._write_value(obj, value, fn)
+    def write_value(Self, obj: WritableObject, value):
+        fn = Self.p.write_system_value if Self.is_system_object(obj) else Self.p.write_value
+        return Self._write_value(obj, value, fn)
 
-    def write_masked_value(self, obj: WritableObject, value):
-        fn = self.p.write_system_masked_value if self.is_system_object(obj) else self.p.write_masked_value
-        return self._write_masked_value(obj, value, fn)
+    def write_masked_value(Self, obj: WritableObject, value):
+        fn = Self.p.write_system_masked_value if Self.is_system_object(obj) else Self.p.write_masked_value
+        return Self._write_masked_value(obj, value, fn)
 
-    def delete_object(self, obj: ContainedObject):
-        self._delete_object_at(obj.id_chain)
+    def delete_object(Self, obj: ContainedObject):
+        Self._delete_object_at(obj.id_chain)
 
-    def next_slot(self, container) -> int:
-        return self._handle_error(self._connector.protocol.next_slot, container.id_chain)
+    def next_slot(Self, container) -> int:
+        return Self._handle_error(Self._connector.protocol.next_slot, container.id_chain)
 
-    def create_profile(self):
-        profile_id = self._handle_error(self._connector.protocol.create_profile)
-        return self.profile_for(profile_id)
+    def create_profile(Self):
+        profile_id = Self._handle_error(Self._connector.protocol.create_profile)
+        return Self.profile_for(profile_id)
 
-    def delete_profile(self, p: SystemProfile):
-        self._handle_error(self.p.delete_profile, p.profile_id)
-        if self._current_profile == p:
-            self._set_current_profile(None)
-        self._profiles.pop(p.profile_id, None)  # profile may have already been deleted
+    def delete_profile(Self, p: SystemProfile):
+        Self._handle_error(Self.p.delete_profile, p.profile_id)
+        if Self._current_profile == p:
+            Self._set_current_profile(None)
+        Self._profiles.pop(p.profile_id, None)  # profile may have already been deleted
 
-    def activate_profile(self, p: SystemProfile or None):
+    def activate_profile(Self, p: SystemProfile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
-        self._handle_error(self.p.activate_profile, SystemProfile.id_for(p))
-        self._set_current_profile(p)
+        Self._handle_error(Self.p.activate_profile, SystemProfile.id_for(p))
+        Self._set_current_profile(p)
 
-    def active_and_available_profiles(self):
+    def active_and_available_profiles(Self):
         """
             returns a tuple - the first element is the active profile, or None if no profile is active.
             the second element is a sequence of profiles.
         """
-        future = self.p.list_profiles()
+        future = Self.p.list_profiles()
         data = BaseController.result_from(future)
-        activate = self.profile_for(data[0], True)
-        available = tuple([self.profile_for(x) for x in data[1:]])
+        activate = Self.profile_for(data[0], True)
+        available = tuple([Self.profile_for(x) for x in data[1:]])
         return activate, available
 
-    def is_active_profile(self, p: SystemProfile):
-        active = self.active_and_available_profiles()[0]
+    def is_active_profile(Self, p: SystemProfile):
+        active = Self.active_and_available_profiles()[0]
         return False if not active else active.profile_id == p.profile_id
 
-    def list_objects(self, p: SystemProfile):
-        future = self.p.list_profile(p.profile_id)
+    def list_objects(Self, p: SystemProfile):
+        future = Self.p.list_profile(p.profile_id)
         data = BaseController.result_from(future)
         for d in data:
-            yield self._materialize_object_descriptor(*d)
+            yield Self._materialize_object_descriptor(*d)
 
-    def reset(self, erase_eeprom=False, hard_reset=True):
+    def reset(Self, erase_eeprom=False, hard_reset=True):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
-            current_id = self.system_id().read()
+            current_id = Self.system_id().read()
             id_service.return_id(current_id)
-        self._handle_error(self.p.reset, 1 if erase_eeprom else 0 or 2 if hard_reset else 0)
+        Self._handle_error(Self.p.reset, 1 if erase_eeprom else 0 or 2 if hard_reset else 0)
         if erase_eeprom:
-            self._profiles.clear()
-            self._current_profile = None
+            Self._profiles.clear()
+            Self._current_profile = None
 
-    def is_system_object(self, obj:ContainedObject):
-        return obj.root_container() == self._sysroot
+    def is_system_object(Self, obj:ContainedObject):
+        return obj.root_container() == Self._sysroot
 
-    def _write_value(self, obj: WritableObject, value, fn):
+    def _write_value(Self, obj: WritableObject, value, fn):
         encoded = obj.encode(value)
-        data = self._fetch_data_block(fn, obj.id_chain, encoded)
+        data = Self._fetch_data_block(fn, obj.id_chain, encoded)
         if data != encoded:
             raise FailedOperationError("could not write value")
         new_value = obj.decode(data)
         obj._update_value(new_value)
         return value
 
-    def _write_masked_value(self, obj: WritableObject, value, fn):
+    def _write_masked_value(Self, obj: WritableObject, value, fn):
         encoded = obj.encode_masked(value)
-        data = self._fetch_data_block(fn, obj.id_chain, *encoded)
+        data = Self._fetch_data_block(fn, obj.id_chain, *encoded)
         if not data:
             raise FailedOperationError("could not write masked value")
         new_value = obj.decode(data)
         obj._update_value(new_value)
         return new_value
 
-    def uninstantiate(self, id_chain, optional=False):
-        o = self.object_at(id_chain, optional)
+    def uninstantiate(Self, id_chain, optional=False):
+        o = Self.object_at(id_chain, optional)
         if o is not None:
             o.container.notify_removed(o)  # notify the object's container that it has been removed
-        self._current_profile._remove(id_chain)
+        Self._current_profile._remove(id_chain)
 
-    def _delete_object_at(self, id_chain, optional=False):
+    def _delete_object_at(Self, id_chain, optional=False):
         """
         :param id_chain:    The id chain of the object to delete
         :param optional:    When false, deletion must succeed (the object is deleted). When false, deletion may silently
             fail for a non-existent object.
         """
-        self._handle_error(self.p.delete_object, id_chain, allow_fail=optional)
-        self.uninstantiate(id_chain, optional)
+        Self._handle_error(Self.p.delete_object, id_chain, allow_fail=optional)
+        Self.uninstantiate(id_chain, optional)
 
-    def create_object(self, obj_class, args=None, container=None, slot=None) -> InstantiableObject:
+    def create_object(Self, obj_class, args=None, container=None, slot=None) -> InstantiableObject:
         """
         :param obj_class: The type of object to create
         :param args: The constructor arguments for the object. (See documentation for each object for details.)
@@ -986,27 +989,27 @@ class BaseController(Controller):
         :return: The proxy object representing the created object in the controller
         :rtype: an instance of obj_class
         """
-        container = container or self.root_container
-        slot is not None and self._delete_object_at(container.id_chain_for(slot), optional=True)
-        slot = slot if slot is not None else self.next_slot(container)
+        container = container or Self.root_container
+        slot is not None and Self._delete_object_at(container.id_chain_for(slot), optional=True)
+        slot = slot if slot is not None else Self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
-        dec = args and obj_class.decode_definition(data, controller=self)
+        dec = args and obj_class.decode_definition(data, controller=Self)
         if dec != args:
             raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
-        return self._create_object(container, obj_class, slot, data, args)
+        return Self._create_object(container, obj_class, slot, data, args)
 
-    def _create_object(self, container: Container, obj_class, slot, data: bytes, args):
+    def _create_object(Self, container: Container, obj_class, slot, data: bytes, args):
         data = data or []
         id_chain = container.id_chain_for(slot)
-        self._handle_error(self._connector.protocol.create_object, id_chain, obj_class.type_id, data)
-        obj = self._instantiate_stub(obj_class, container, id_chain, args)
+        Self._handle_error(Self._connector.protocol.create_object, id_chain, obj_class.type_id, data)
+        obj = Self._instantiate_stub(obj_class, container, id_chain, args)
         return obj
 
-    def _instantiate_stub(self, obj_class, container, id_chain, args):
+    def _instantiate_stub(Self, obj_class, container, id_chain, args):
         """ Creates the stub object for an existing object in the controller."""
-        obj = obj_class(self, container, id_chain[-1])
+        obj = obj_class(Self, container, id_chain[-1])
         obj.definition = args
-        self._current_profile._add(obj)
+        Self._current_profile._add(obj)
         container.notify_added(obj)
         return obj
 
@@ -1027,8 +1030,8 @@ class BaseController(Controller):
         return data
 
     @property
-    def root_container(self):
-        p = self._check_current_profile()
+    def root_container(Self):
+        p = Self._check_current_profile()
         return p.root
 
     @staticmethod
@@ -1037,19 +1040,19 @@ class BaseController(Controller):
         # a memory leak
         return None if future is None else future.value(timeout)
 
-    def profile_for(self, profile_id, may_be_negative=False):
+    def profile_for(Self, profile_id, may_be_negative=False):
         if profile_id < 0:
             if may_be_negative:
                 return None
             raise ValueError("negative profile id")
-        return fetch_dict(self._profiles, profile_id, lambda x: SystemProfile(self, x))
+        return fetch_dict(Self._profiles, profile_id, lambda x: SystemProfile(Self, x))
 
-    def container_at(self, id_chain):
-        o = self.object_at(id_chain)
+    def container_at(Self, id_chain):
+        o = Self.object_at(id_chain)
         return o
 
-    def object_at(self, id_chain, optional=False):
-        p = self._check_current_profile()
+    def object_at(Self, id_chain, optional=False):
+        p = Self._check_current_profile()
         return p.object_at(id_chain, optional)
 
     @staticmethod
@@ -1060,44 +1063,44 @@ class BaseController(Controller):
         """
         return id_chain[:-1], id_chain[-1]
 
-    def _container_slot_from_id_chain(self, id_chain):
-        chain_prefix, slot = self.container_chain_and_id(id_chain)
-        container = self.container_at(chain_prefix)
+    def _container_slot_from_id_chain(Self, id_chain):
+        chain_prefix, slot = Self.container_chain_and_id(id_chain)
+        container = Self.container_at(chain_prefix)
         return container, slot
 
-    def _materialize_object_descriptor(self, id_chain, obj_type, data):
+    def _materialize_object_descriptor(Self, id_chain, obj_type, data):
         """ converts the obj_type (int) to the object class, converts the id to a container+slot reference, and
             decodes the data.
         """
         # todo - the object descriptors should be in order so that we can dynamically build the container proxy
-        container, slot = self._container_slot_from_id_chain(id_chain)
-        cls = self._object_types.from_id(obj_type)
-        args = cls.decode_definition(data, controller=self) if data else None
-        return ObjectReference(self, container, slot, cls, args)
+        container, slot = Self._container_slot_from_id_chain(id_chain)
+        cls = Self._object_types.from_id(obj_type)
+        args = cls.decode_definition(data, controller=Self) if data else None
+        return ObjectReference(Self, container, slot, cls, args)
 
-    def ref(self, obj_class, args, id_chain):
+    def ref(Self, obj_class, args, id_chain):
         """ helper method to create an object reference from the class, args and id_chain. """
-        container, slot = self._container_slot_from_id_chain(id_chain)
-        return ObjectReference(self, container, slot, obj_class, args)
+        container, slot = Self._container_slot_from_id_chain(id_chain)
+        return ObjectReference(Self, container, slot, obj_class, args)
 
     @property
-    def p(self) -> ControllerProtocolV030:  # short-hand and type hint
-        return self._connector.protocol
+    def p(Self) -> ControllerProtocolV030:  # short-hand and type hint
+        return Self._connector.protocol
 
-    def _check_current_profile(self) -> SystemProfile:
-        if not self._current_profile:
+    def _check_current_profile(Self) -> SystemProfile:
+        if not Self._current_profile:
             raise FailedOperationError("no current profile")
-        return self._current_profile
+        return Self._current_profile
 
     # noinspection PyProtectedMember
-    def _set_current_profile(self, profile: SystemProfile):
-        if self._current_profile:
-            self._current_profile._deactivate()
-        self._current_profile = None
+    def _set_current_profile(Self, profile: SystemProfile):
+        if Self._current_profile:
+            Self._current_profile._deactivate()
+        Self._current_profile = None
         if profile:
-            self._current_profile = profile
+            Self._current_profile = profile
             profile._activate()
 
     @property
-    def current_profile(self):
-        return self._current_profile
+    def current_profile(Self):
+        return Self._current_profile
