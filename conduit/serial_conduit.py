@@ -60,7 +60,8 @@ known_devices = {
     (r"%mega2560\.name%.*", r"USB VID\:PID=2341\:0010.*"): "Arduino Mega2560",
     (r"Arduino.*Leonardo.*", r"USB VID\:PID=2341\:8036.*"): "Arduino Leonardo",
     (r'Arduino Uno.*', r'USB VID:PID=2341:0043.*'): "Arduino Uno",
-    (r"Spark Core.*Arduino.*", r"USB VID\:PID=1D50\:607D.*"): "Spark Core"
+    (r"Spark Core.*Arduino.*", r"USB VID\:PID=1D50\:607D.*"): "Spark Core",
+    (r".*Photon.*", r"USB VID\:PID=2d04\:c006.*"): "Particle Photon"
 }
 
 
