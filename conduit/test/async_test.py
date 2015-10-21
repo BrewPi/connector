@@ -25,7 +25,8 @@ class AsyncConnectorTest:
                       self.executor.submit(self.readFromConnectionToQueue, c, c.receiveQueue))
             return result
 
-        self.futures = [q for c in self.connections for q in connectionQueues(c)]
+        self.futures = [
+            q for c in self.connections for q in connectionQueues(c)]
 
     def tearDown(self):
         if self.connections:
@@ -35,11 +36,11 @@ class AsyncConnectorTest:
         for f in self.futures:  # any exceptions thrown will be propagated here
             f.result()
 
-    def readFromConnectionToQueue(self, connector:Conduit, queue:Queue):
+    def readFromConnectionToQueue(self, connector: Conduit, queue: Queue):
         while connector.open:
             queue.put(connector.input.readline())
 
-    def writeFromQueueToConnection(self, queue:Queue, connector:Conduit):
+    def writeFromQueueToConnection(self, queue: Queue, connector: Conduit):
         while connector.open:
             try:
                 lines = queue.get(timeout=1)
@@ -50,7 +51,9 @@ class AsyncConnectorTest:
 
     def assertWriteRead(self, text, connectors):
         for line in text.split('\n'):
-            connectors[0].sendQueue.put(line)  # rather than writing directly to the connector, put it in the send queue
+            # rather than writing directly to the connector, put it in the send
+            # queue
+            connectors[0].sendQueue.put(line)
             for c in connectors[1:]:
                 read = c.receiveQueue.get()
                 self.assertEqual(read, str.encode(line))
@@ -58,4 +61,3 @@ class AsyncConnectorTest:
     @abstractmethod
     def createConnections(self):
         raise NotImplementedError
-

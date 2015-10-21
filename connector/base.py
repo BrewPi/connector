@@ -74,18 +74,19 @@ class Connector():
 
 
 class ConnectorMonitorListener:
+
     @staticmethod
-    def connection_available(connector:Connector):
+    def connection_available(connector: Connector):
         """ Notifies this listener that the given connection is available, but not connected. """
         pass
 
     @staticmethod
-    def connection_connected(connector:Connector):
+    def connection_connected(connector: Connector):
         """ Notifies this listener that the given connection has been established. """
         pass
 
     @staticmethod
-    def connection_disconnected(connector:Connector):
+    def connection_disconnected(connector: Connector):
         """ Notifies this listener that the given connection has been disconnected. """
         pass
 
@@ -94,7 +95,7 @@ class ConnectorMonitor:
     """ inspects a list of Connectors for changes.
     """
 
-    def __init__(self, connectors:list):
+    def __init__(self, connectors: list):
         self.connectors = connectors
 
     def scan(self):
@@ -106,6 +107,7 @@ class ConnectorMonitor:
 class AbstractConnector(Connector):
     """ Manages the connection cycle, using a protocol sniffer to determine the protocol
         of the connected device. """
+
     def __init__(self):
         self.changed = EventHook()
         self._base_conduit = None
@@ -184,4 +186,3 @@ class AbstractConnector(Connector):
     def check_connected(self):
         if not self.connected:
             raise ConnectionNotConnectedError
-

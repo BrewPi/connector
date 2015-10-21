@@ -20,8 +20,8 @@ baud = 57600
 apply_module(sys.modules[__name__])
 
 
-
 class ConnectorSerialTestCase(unittest.TestCase):
+
     def __init__(self, methodName='runTest'):
         super().__init__(methodName)
         self.connection = None
@@ -39,7 +39,7 @@ class ConnectorSerialTestCase(unittest.TestCase):
     def test_detect_port_not_given(self):
         assert_that(detect_port("auto"), is_(equal_to(arduino_port_detect)))
 
-    test_detect_port_not_given.os='windows'
+    test_detect_port_not_given.os = 'windows'
 
     def test_factory_method_returns_callable(self):
         factory = serial_connector_factory(invalid_port, baud, timeout=1)
@@ -72,6 +72,7 @@ class ConnectorSerialTestCase(unittest.TestCase):
         s = "abc".encode()
         self.connection.output.writelines(s)
 
+
 @unittest.skipUnless(virtualPortPair, "need virtual serial ports defined")
 class VirtualPortSerialTestCase(AsyncConnectorTest, unittest.TestCase):
 
@@ -85,7 +86,8 @@ class VirtualPortSerialTestCase(AsyncConnectorTest, unittest.TestCase):
     def test_comms(self):
         self.assertWriteRead("some line\nand another", self.connections)
         self.assertWriteRead("more stuff\n", self.connections)
-        self.assertWriteRead("reverse direction\nline\n", self.connections[::-1])
+        self.assertWriteRead("reverse direction\nline\n",
+                             self.connections[::-1])
 
 
 arduino_device = (r"Arduino Leonardo", r"USB VID:PID=2341:8036")
@@ -93,6 +95,7 @@ arduino_device = (r"Arduino Leonardo", r"USB VID:PID=2341:8036")
 
 class CallableMock(object):
     """ a work-around for mocks not being callable. https://code.google.com/p/mockito-python/issues/detail?id=5 """
+
     def __init__(self, mock):
         self.mock = mock
 
@@ -105,6 +108,7 @@ class CallableMock(object):
 
 def verify_disconnected(mock):
     verify(mock).__exit__()
+
 
 def verify_connected(mock):
     verify(mock).__enter__()
@@ -135,7 +139,8 @@ class SerialWatchdogTest(unittest.TestCase):
         device = ('test_port', arduino_device[0], arduino_device[1])
         self.sut.update_ports((device,))
         verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
-        assert_that(self.connections, has_length(1), "expected only one connection")
+        assert_that(self.connections, has_length(1),
+                    "expected only one connection")
         verify_connected(self.connections['test_port'])
 
     def test_device_disconnected(self):
@@ -144,7 +149,8 @@ class SerialWatchdogTest(unittest.TestCase):
         self.sut.update_ports(tuple())
         verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
         verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
-        assert_that(self.connections, has_length(1), "expected only one connection")
+        assert_that(self.connections, has_length(1),
+                    "expected only one connection")
         verify_connected(self.connections['test_port'])
         verify_disconnected(self.connections['test_port'])
 
@@ -155,17 +161,19 @@ class SerialWatchdogTest(unittest.TestCase):
         self.sut.update_ports((test_device,))
         verify(self.listener, 1).__call__(any(ResourceAvailableEvent))
         verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
-        assert_that(self.connections, has_length(1), "expected only one connection")
+        assert_that(self.connections, has_length(1),
+                    "expected only one connection")
         verify_connected(self.connections['test_port'])
         verify_disconnected(self.connections['test_port'])
 
     def test_multiple_connections(self):
         device = ('test_port', arduino_device[0], arduino_device[1])
         device2 = ('test_port2', arduino_device[0], arduino_device[1])
-        self.sut.update_ports((device,device2))
+        self.sut.update_ports((device, device2))
         test_device = ('test_port', 'test_device', 'test_device')
-        self.sut.update_ports((device2,test_device))
-        assert_that(self.connections, has_length(2), "expected two connections")
+        self.sut.update_ports((device2, test_device))
+        assert_that(self.connections, has_length(2),
+                    "expected two connections")
         verify(self.listener, 2).__call__(any(ResourceAvailableEvent))
         verify(self.listener, 1).__call__(any(ResourceUnavailableEvent))
         verify_connected(self.connections['test_port'])

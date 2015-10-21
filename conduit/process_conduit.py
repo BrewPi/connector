@@ -5,7 +5,6 @@ from conduit.watchdog import ResourceWatchdog
 __author__ = 'mat'
 
 
-
 class ProcessConduit(DefaultConduit):
     """ Provides a conduit to a locally hosted process. """
 
@@ -19,7 +18,8 @@ class ProcessConduit(DefaultConduit):
         self._load(*args)
 
     def _load(self, *args):
-        p = subprocess.Popen(" ".join(args), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        p = subprocess.Popen(
+            " ".join(args), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         self.process = p
         self.set_streams(p.stdout, p.stdin)
 
@@ -29,7 +29,7 @@ class ProcessConduit(DefaultConduit):
         The conduit is considered open if the underlying process is still set and alive.
         """
         return self.process is not None and \
-               self.process.poll() is None
+            self.process.poll() is None
 
     def wait_for_exit(self):
         self.process.wait()
@@ -51,4 +51,3 @@ class ProcessWatchdog(ResourceWatchdog):
 
     def is_allowed(self, key, device):
         return self.pattern.match(key) and super().is_allowed(key, device)
-

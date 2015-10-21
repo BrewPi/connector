@@ -20,12 +20,13 @@ class FactoryTestCase(unittest.TestCase):
 
     def test_no_input_raises_unknown_protocol(self):
         c = build_conduit(b'')
-        assert_that(calling(determine_protocol).with_args(c), raises(UnknownProtocolError))
-
+        assert_that(calling(determine_protocol).with_args(c),
+                    raises(UnknownProtocolError))
 
     def test_create_v020(self):
         c = build_conduit(b'N:0.2.0\n')
-        assert_that(calling(determine_protocol).with_args(c), raises(UnknownProtocolError))
+        assert_that(calling(determine_protocol).with_args(c),
+                    raises(UnknownProtocolError))
 
     def test_create_v023(self):
         c = build_conduit(b'N:0.2.3\n')

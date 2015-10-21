@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 class SerialConnector(AbstractConnector):
+
     def __init__(self, serial: Serial):
         """
         Creates a new serial connector.
@@ -39,7 +40,8 @@ class SerialConnector(AbstractConnector):
                 logger.info("opened serial port %s" % self._serial.port)
                 time.sleep(5)
             except SerialException as e:
-                logger.error("error opening serial port %s: %s" % self._serial.port, e)
+                logger.error("error opening serial port %s: %s" %
+                             self._serial.port, e)
                 raise ConnectorError from e
 
     def _connect(self)->Conduit:
@@ -61,6 +63,7 @@ class SerialConnector(AbstractConnector):
 class SerialConnectorFactory:
     """ The factory used to create a connection
     """
+
     def __init__(self, port, device):
         s = Serial()
         s.setPort(port)
@@ -72,10 +75,12 @@ class SerialConnectorFactory:
         try:
             logger.debug("Detected device on %s" % self.serial.port)
             self.connector.connect()
-            logger.debug("Connected device on %s using protocol %s" % (self.serial.port, self.connector.protocol))
+            logger.debug("Connected device on %s using protocol %s" %
+                         (self.serial.port, self.connector.protocol))
         except ConnectorError as e:
             s = str(e)
-            logger.error("Unable to connect to device on %s - %s" % (self.serial.port, s))
+            logger.error("Unable to connect to device on %s - %s" %
+                         (self.serial.port, s))
             raise e
 
     def __exit__(self):
@@ -86,7 +91,8 @@ class SerialConnectorFactory:
 def log_connection_events(event):
     if isinstance(event, ResourceAvailableEvent):
         logger.info("Detected device on %s" % event.source)
-        logger.info("Connected device on %s using protocol %s" % (event.source, event.resource.connector.protocol))
+        logger.info("Connected device on %s using protocol %s" %
+                    (event.source, event.resource.connector.protocol))
     if isinstance(event, ResourceUnavailableEvent):
         logger.info("Disconnected device on %s" % event.source)
 

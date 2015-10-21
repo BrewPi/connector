@@ -28,12 +28,14 @@ class TestController(MixinController):
 
 
 class ControllerObjectTestCase(unittest.TestCase):
+
     def setUp(self):
         self.connector = None
         self.controller = TestController(self.connector)
 
 
 class RootContainerTestCase(ControllerObjectTestCase):
+
     def create_root(self):
         p = SystemProfile(self.controller, 1)
         r = RootContainer(p)
@@ -49,6 +51,7 @@ class RootContainerTestCase(ControllerObjectTestCase):
 
 
 class ContainerObjectTestCase(ControllerObjectTestCase):
+
     def test_id_chain_for_nested_container(self):
         p = SystemProfile(self.controller, 1)
         r = RootContainer(p)
@@ -86,7 +89,8 @@ class BaseControllerTestHelper(unittest.TestCase):
             self.assert_has_assigned_id()
             self.controller.full_erase()
             act = self.c.active_and_available_profiles()
-            assert_that(act[0], is_(None), "no profile should be loaded by default")
+            assert_that(act[0], is_(None),
+                        "no profile should be loaded by default")
             assert_that(len(act[1]), is_(0), "no profiles created by default")
             success = True
         finally:
@@ -95,9 +99,9 @@ class BaseControllerTestHelper(unittest.TestCase):
 
     def assert_has_assigned_id(self):
         assigned_id = self.c.system_id().read()
-        assert_that(len(assigned_id), is_(equal_to(1)), "expected a single byte id")
+        assert_that(len(assigned_id), is_(equal_to(1)),
+                    "expected a single byte id")
         assert_that(assigned_id[0], all_of(greater_than(0), less_than(255)))
-
 
     @abstractmethod
     def create_controller(self):
@@ -107,20 +111,23 @@ class BaseControllerTestHelper(unittest.TestCase):
     def create_connector(self):
         raise NotImplementedError
 
-    def assert_active_available(self, expected_active:int, expected_available):
+    def assert_active_available(self, expected_active: int, expected_available):
         aa = self.c.active_and_available_profiles()
         active = SystemProfile.id_for(aa[0])
         available = [SystemProfile.id_for(p) for p in aa[1]]
         assert_that(active, is_(equal_to(expected_active)), "active profile")
-        assert_that(tuple(available), is_(equal_to(tuple(expected_available))), "available profiles")
+        assert_that(tuple(available), is_(
+            equal_to(tuple(expected_available))), "available profiles")
 
     def assign_id(self):
         return id_service.simple_id_service
 
     def create_connection(self, load_profile=False):
-        # todo - this is generic and a basic requirement of all connected devices that the ID is assigned.
+        # todo - this is generic and a basic requirement of all connected
+        # devices that the ID is assigned.
         self.connector.connect()
-        self.protocol = self.connector.protocol  # so we can access the protocol when the conduit is disconnected
+        # so we can access the protocol when the conduit is disconnected
+        self.protocol = self.connector.protocol
         self.protocol.start_background_thread()
         if self.initialize_id:
             self.controller.initialize(self.assign_id(), load_profile)
@@ -165,14 +172,16 @@ class GeneralControllerTests(BaseControllerTestHelper):
             indirectly, this tests all the controller/conduit/protocol create/destory due to a reset,
             which closes the conduit to the embedded controller.
         """
-        # todo - the system id of 1 byte is specific to the arduino. other devices may manage their IDs differently
+        # todo - the system id of 1 byte is specific to the arduino. other
+        # devices may manage their IDs differently
         controller_id = self.controller.system_id().read()
-        assert_that(controller_id, is_not(equal_to(b'\xFF')), "expected system id to have been assigned")
+        assert_that(controller_id, is_not(equal_to(b'\xFF')),
+                    "expected system id to have been assigned")
         self.initialize_id = False
         self.reset(True)  # restart the controller and erase the eeprom
         controller_id = self.controller.system_id().read()
-        assert_that(controller_id, is_(equal_to(b'\xFF')), "expected id to have been reset on erase eeprom")
-
+        assert_that(controller_id, is_(equal_to(b'\xFF')),
+                    "expected id to have been reset on erase eeprom")
 
     def test_create_max_profiles(self):
         """ creates many profiles and verifies they have distinct ids:
@@ -180,7 +189,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
                 when creating the maximum number of profiles, then each profile should have a distinct profile id
                 when another profile is created, then an exception is thrown
         """
-        current_id = SystemProfile.id_for(self.c.active_and_available_profiles()[0])
+        current_id = SystemProfile.id_for(
+            self.c.active_and_available_profiles()[0])
         profiles = []
         for x in profile_id_range():
             p = self.c.create_profile()
@@ -199,8 +209,10 @@ class GeneralControllerTests(BaseControllerTestHelper):
         for x in profile_id_range():
             self.c.activate_profile(profiles[x])
             p = self.c.delete_profile(profiles[x])
-            p = self.c.delete_profile(profiles[x])  # second call succeeds also - deleting is idempotent
-            self.assert_active_available(-1, range(x + 1, profile_id_range().stop))
+            # second call succeeds also - deleting is idempotent
+            p = self.c.delete_profile(profiles[x])
+            self.assert_active_available(-1,
+                                         range(x + 1, profile_id_range().stop))
 
     @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_stress_object_creation(self):
@@ -209,7 +221,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
         for x in range(0, 3):
             self.c.full_erase()
             count2 = self.fill_profile()
-            assert_that(count2, is_(any_of(greater_than(count), equal_to(count))))
+            assert_that(count2, is_(
+                any_of(greater_than(count), equal_to(count))))
 
     def fill_profile(self):
         """ creates as many objects as possible in the current profile. """
@@ -263,15 +276,21 @@ class GeneralControllerTests(BaseControllerTestHelper):
         o1a = self.create_object()
         o2a = self.create_object()
         p2 = self.c.create_profile()
-        assert_that(p1.is_active, is_(True), "expected profile to still be active")
-        assert_that(calling(self.create_object), (raises(FailedOperationError)), "profile should still be closed")
+        assert_that(p1.is_active, is_(True),
+                    "expected profile to still be active")
+        assert_that(calling(self.create_object), (raises(
+            FailedOperationError)), "profile should still be closed")
         p2.activate()
-        assert_that(calling(self.create_object), is_not(raises(FailedOperationError)), "profile p2 should be open")
+        assert_that(calling(self.create_object), is_not(
+            raises(FailedOperationError)), "profile p2 should be open")
         o2 = self.create_object()
-        assert_that(o2.id_chain, is_(equal_to((first_slot+1,))))  # second object in this profile
+        # second object in this profile
+        assert_that(o2.id_chain, is_(equal_to((first_slot + 1,))))
         p1.delete()
-        assert_that(p2.is_active, is_(True), "expected profile 2 to still be active")
-        assert_that(calling(o2.read), is_not(raises(FailedOperationError)), "o2 should be readable")
+        assert_that(p2.is_active, is_(True),
+                    "expected profile 2 to still be active")
+        assert_that(calling(o2.read), is_not(
+            raises(FailedOperationError)), "o2 should be readable")
         p2.delete()
 
     def test_delete_active_profile(self):
@@ -295,23 +314,29 @@ class GeneralControllerTests(BaseControllerTestHelper):
         o11 = c.create_object(PersistentValue, b1)
         p2 = self.setup_profile()
         b2 = b'\x19\xA1\xFE\x00\x01'
-        o20 = c.create_object(PersistentValue, b2)        # reversed order so they are in different slots
+        # reversed order so they are in different slots
+        o20 = c.create_object(PersistentValue, b2)
         c.create_object(CurrentTicks)
         self.reset()
         # verify profiles can be listed
         first_slot = 1
-        expected1 = (c.ref(CurrentTicks, None, (first_slot,)), c.ref(PersistentValue, b1, (first_slot+1,)))
-        expected2 = (c.ref(PersistentValue, b2, (first_slot,)), c.ref(CurrentTicks, None, (first_slot+1,)))
+        expected1 = (c.ref(CurrentTicks, None, (first_slot,)),
+                     c.ref(PersistentValue, b1, (first_slot + 1,)))
+        expected2 = (c.ref(PersistentValue, b2, (first_slot,)),
+                     c.ref(CurrentTicks, None, (first_slot + 1,)))
         assert_that(tuple(c.list_objects(p2)), is_(equal_to(expected2)))
         assert_that(tuple(c.list_objects(p1)), is_(equal_to(expected1)))
         # verify values can be read - initially in profile 2
-        assert_that(p2.is_active, "expected p2 to be the active profile after reset")
-        assert_that(c.read_value(o20), is_(b2), "value of persistent object in 2nd profile")
+        assert_that(
+            p2.is_active, "expected p2 to be the active profile after reset")
+        assert_that(c.read_value(o20), is_(b2),
+                    "value of persistent object in 2nd profile")
         p1.activate()
-        assert_that(c.read_value(o11), is_(b1), "value of persistent object in 1st profile")
+        assert_that(c.read_value(o11), is_(b1),
+                    "value of persistent object in 1st profile")
         o10 = p1.refresh(o10)
         o10.delete()
-        assert_that(tuple(c.list_objects(p1)), is_(equal_to(tuple([c.ref(PersistentValue, b1, (first_slot+1,))]))),
+        assert_that(tuple(c.list_objects(p1)), is_(equal_to(tuple([c.ref(PersistentValue, b1, (first_slot + 1,))]))),
                     "should remove deleted object")
 
     def test_open_profile_not_closed(self):
@@ -323,7 +348,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
         # after reset (when the connection is broken) all existing objects should be revalidated
         # against the controller.
         self.assert_active_available(p.profile_id, [p.profile_id])
-        assert_that(p.is_active, is_(equal_to(True)), "profile should be active after reset")
+        assert_that(p.is_active, is_(equal_to(True)),
+                    "profile should be active after reset")
         assert_that(calling(self.create_object), is_not(raises(FailedOperationError)),
                     "profile should be open after reset")
         o2 = self.create_object()
@@ -340,16 +366,21 @@ class GeneralControllerTests(BaseControllerTestHelper):
 
     def test_reset_preserves_inactive_profile(self):
         self.c.activate_profile(None)
-        self.assert_active_available(-1, [])  # verify that profiles have been cleared
+        # verify that profiles have been cleared
+        self.assert_active_available(-1, [])
         self.reset()  # do the reset
-        self.assert_active_available(-1, [])  # tests that the connection comes back up
+        # tests that the connection comes back up
+        self.assert_active_available(-1, [])
 
     def test_reset_preserves_active_profile(self):
-        self.assert_active_available(-1, [])  # verify that profiles have been cleared
+        # verify that profiles have been cleared
+        self.assert_active_available(-1, [])
         p = self.setup_profile()
-        self.assert_active_available(p.profile_id, [p.profile_id])  # tests that the connection comes back up
+        # tests that the connection comes back up
+        self.assert_active_available(p.profile_id, [p.profile_id])
         self.reset()  # do the reset
-        self.assert_active_available(p.profile_id, [p.profile_id])  # tests that the connection comes back up
+        # tests that the connection comes back up
+        self.assert_active_available(p.profile_id, [p.profile_id])
 
     def test_deleted_slots_are_reused(self):
         """ adds objects to the open profile, and then causes a reset.
@@ -361,18 +392,23 @@ class GeneralControllerTests(BaseControllerTestHelper):
         slot = o1.slot
         o1.delete()
         o4 = self.create_object()
-        assert_that(o4.slot, is_(equal_to(slot)), "expected new object to use same slot as deleted object")
+        assert_that(o4.slot, is_(equal_to(slot)),
+                    "expected new object to use same slot as deleted object")
 
     def test_list_objects_after_delete(self):
         p = self.setup_profile()
-        assert_that(tuple(self.c.list_objects(p)), has_length(0), "expected no objects in new profile")
+        assert_that(tuple(self.c.list_objects(p)), has_length(0),
+                    "expected no objects in new profile")
         o1 = self.c.create_object(PersistentValue, b'\x00')
         o2 = self.c.create_object(PersistentValue, b'\x01')
-        assert_that(tuple(self.c.list_objects(p)), has_length(2), "expected 2 objects in profile")
+        assert_that(tuple(self.c.list_objects(p)), has_length(2),
+                    "expected 2 objects in profile")
         o1.delete()
-        assert_that(tuple(self.c.list_objects(p)), has_length(1), "expected 1 object in profile")
+        assert_that(tuple(self.c.list_objects(p)), has_length(1),
+                    "expected 1 object in profile")
         o3 = self.c.create_object(PersistentValue, b'\x02')
-        assert_that(tuple(self.c.list_objects(p)), has_length(2), "expected 2 objects in profile")
+        assert_that(tuple(self.c.list_objects(p)), has_length(2),
+                    "expected 2 objects in profile")
 
     @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_dynamic_container_stress(self):
@@ -383,10 +419,12 @@ class GeneralControllerTests(BaseControllerTestHelper):
             try:
                 containers += [self.c.create_dynamic_container(container)]
             except Exception as e:
-                raise AssertionError("unable to create container %d" % x) from e
+                raise AssertionError(
+                    "unable to create container %d" % x) from e
 
         assert_that(containers[0].slot, is_(0))
-        assert_that(containers[-1].slot, is_(126))  # 126 is the highest container ID
+        # 126 is the highest container ID
+        assert_that(containers[-1].slot, is_(126))
 
         assert_that(calling(self.c.create_dynamic_container).with_args(container), raises(FailedOperationError),
                     "expected container to be full")
@@ -429,7 +467,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
         p3 = self.setup_profile()
         # todo - this used to throw a FailedOperationError with only 2 profiles (no p3 above)
         # but after switching to the ControlLoopContainer p2 remained as an open profile.
-        # and the second create dynamic container create succeeded (since p2 was now considered an open profile.)
+        # and the second create dynamic container create succeeded (since p2
+        # was now considered an open profile.)
 
         p.activate()
         assert_that(calling(self.c.create_dynamic_container).with_args(self.c.root_container),
@@ -461,8 +500,9 @@ class GeneralControllerTests(BaseControllerTestHelper):
         container = c.create_object(DynamicContainer)
         c.create_object(CurrentTicks, None, container)
         refs = tuple(c.list_objects(p))
-        expected = (c.ref(DynamicContainer, None, (1,)), c.ref(CurrentTicks, None, (1, 0)))
-        for r,e in zip(refs, expected):
+        expected = (c.ref(DynamicContainer, None, (1,)),
+                    c.ref(CurrentTicks, None, (1, 0)))
+        for r, e in zip(refs, expected):
             assert_that(r, is_(equal_to(e)))
         assert_that(tuple(refs), is_(equal_to(expected)))
 
@@ -475,15 +515,18 @@ class GeneralControllerTests(BaseControllerTestHelper):
 
     def _persist_value(self, size):
         p = self.setup_profile()
-        b = bytes([x for x in range(10,10+size)])
+        b = bytes([x for x in range(10, 10 + size)])
         persist = self.c.create_object(PersistentValue, b)
-        assert_that(persist.read(), is_(equal_to(b)), "expected initial read value to match initial create value")
+        assert_that(persist.read(), is_(equal_to(b)),
+                    "expected initial read value to match initial create value")
         self.reset()
-        assert_that(persist.read(), is_(equal_to(b)), "Expected read value to be initial create value after reset")
-        b2 = bytes([x for x in range(50,50+size)])
+        assert_that(persist.read(), is_(equal_to(b)),
+                    "Expected read value to be initial create value after reset")
+        b2 = bytes([x for x in range(50, 50 + size)])
         persist.write(b2)
         self.reset()
-        assert_that(persist.read(), is_(equal_to(b2)), "Expected read value to be last written value after reset")
+        assert_that(persist.read(), is_(equal_to(b2)),
+                    "Expected read value to be last written value after reset")
 
     def test_multiple_objects_to_same_slot(self):
         p = self.setup_profile()
@@ -492,16 +535,19 @@ class GeneralControllerTests(BaseControllerTestHelper):
         o1 = c.create_object(CurrentTicks, None, None, slot)
         o2 = c.create_object(CurrentTicks, None, None, slot)
         o3 = c.create_object(CurrentTicks, None, None, slot)
-        o4 = c.create_object(CurrentTicks, None, None, slot+1)
+        o4 = c.create_object(CurrentTicks, None, None, slot + 1)
         result = tuple(self.c.list_objects(p))
-        assert_that(result, has_length(2), "expected two object definitions at slot 0 and slot 1")
-        expected = (c.ref(CurrentTicks, None, (slot,)), c.ref(CurrentTicks, None, (slot+1,)))
+        assert_that(result, has_length(
+            2), "expected two object definitions at slot 0 and slot 1")
+        expected = (c.ref(CurrentTicks, None, (slot,)),
+                    c.ref(CurrentTicks, None, (slot + 1,)))
         assert_that(result, is_(equal_to(expected)))
 
     @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_many_persistent_values(self):
         p = self.setup_profile()
-        [self.c.create_object(PersistentValue, bytes(240)) for x in range(0, 4)]
+        [self.c.create_object(PersistentValue, bytes(240))
+         for x in range(0, 4)]
         assert_that(calling(self.c.create_object).with_args(PersistentValue, bytes(240)), raises(FailedOperationError),
                     "Expected last allocation to fail due to insufficient eeprom space")
 
@@ -509,8 +555,10 @@ class GeneralControllerTests(BaseControllerTestHelper):
         """ create some arbitrary object. """
         return self.c.create_current_ticks(self.c.root_container)
 
+
 class ObjectTestHelper(BaseControllerTestHelper):
     """ Base class for tests that are more focus on testing objects in profiles. The setup creates a default profile."""
+
     def setUp(self):
         super().setUp()
         self.setup_profile()

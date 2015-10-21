@@ -20,11 +20,13 @@ cross_compile_exe = None
 apply_module(sys.modules[__name__], 3)
 
 
-# for now this is windows only - will add the cross compile executable to the build so we can test with CI
+# for now this is windows only - will add the cross compile executable to
+# the build so we can test with CI
 @unittest.skipUnless(cross_compile_exe, "cross-compile exe not defined")
 @attr(os='windows')
 class BaseCrossCompileTestCase:
     """ Uses the cross-compiled "arduino" code to test the main functionality of the v03x connector. """
+
     def __init__(self, name):
         super().__init__(name)
         setattr(self, name, super().__getattribute__(name))
@@ -54,4 +56,3 @@ class CrossCompilePersistenceTestCase(BaseCrossCompileTestCase, PersistentValueT
 
 class CrossCompileControlLoopTestCase(BaseCrossCompileTestCase, ControlLoopTest):
     __test__ = True
-

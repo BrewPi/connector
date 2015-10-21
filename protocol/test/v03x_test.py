@@ -15,7 +15,8 @@ import unittest
 
 
 class DequeStream(io.BufferedIOBase):
-    def __init__(self, q:deque):
+
+    def __init__(self, q: deque):
         super().__init__()
         self.q = q
 
@@ -25,17 +26,19 @@ class DequeStream(io.BufferedIOBase):
 
 
 class DequeReader(DequeStream):
+
     def readable(self):
         return True
 
     def read(self, count=-1):
         self._checkClosed()
-        if not count or not self.q :
+        if not count or not self.q:
             return bytes()
         return bytes([self.q.popleft()])
 
 
 class DequeWriter(DequeStream):
+
     def writable(self):
         return True
 
@@ -50,6 +53,7 @@ class RWCacheBuffer():
     """ simple implementation of a read and writable buffer. For single-threaded code in test.
         Use the reader and writer attributes to access a reader and writer - the reader reads what has been put by the writer.
     """
+
     def __init__(self):
         self.q = deque()
         self.reader = BufferedReader(DequeReader(self.q))
@@ -68,6 +72,7 @@ def h2bstream(content):
 
 
 class HexToBinaryStreamTestCase(unittest.TestCase):
+
     def test_read_from_hex_stream(self):
         hex = h2bstream("FF00")
         assert_that(hex.has_next(), is_(True), "stream should have more data")
@@ -76,7 +81,8 @@ class HexToBinaryStreamTestCase(unittest.TestCase):
         assert_that(hex.has_next(), is_(True), "stream should have more data")
         assert_that(hex.peek(1), is_(equal_to(bytes([0x00]))))
         assert_that(hex.read(1), is_(equal_to(bytes([0x00]))))
-        assert_that(hex.has_next(), is_(False), "stream should have no more data")
+        assert_that(hex.has_next(), is_(False),
+                    "stream should have no more data")
         assert_that(hex.peek(1), is_(equal_to(bytes())))
         assert_that(hex.read(1), is_(equal_to(bytes())))
 
@@ -84,6 +90,7 @@ class HexToBinaryStreamTestCase(unittest.TestCase):
         s = h2bstream("")
         assert_that(s.writable(), is_(False))
         assert_that(s.readable(), is_(True))
+
 
 def collect_stream(stream):
     collect = bytearray()
@@ -93,7 +100,9 @@ def collect_stream(stream):
         d = stream.read()
     return bytes(collect)
 
+
 class ChunkedHexTextInputStreamTestCase(unittest.TestCase):
+
     def test_zero_length_read_returns_empty_array(self):
         base = BufferedReader(io.BytesIO(b"20 00 [[12] comment] AF cd "))
         text = ChunkedHexTextInputStream(base)
@@ -101,16 +110,19 @@ class ChunkedHexTextInputStreamTestCase(unittest.TestCase):
         assert_that(text.read(0), is_(equal_to(bytes())))
 
     def test_example1(self):
-        assert_that(self.stream_read(b"20 00 [[12] comment] AF cd "), equal_to(b"2000AFcd"))
+        assert_that(self.stream_read(
+            b"20 00 [[12] comment] AF cd "), equal_to(b"2000AFcd"))
 
     def test_ignores_comments(self):
         assert_that(self.stream_read(b"20 00 [comment]"), equal_to(b"2000"))
 
     def test_ignores_nested_comments(self):
-        assert_that(self.stream_read(b"20 00 [ nested [comment] here ] FF"), equal_to(b"2000FF"))
+        assert_that(self.stream_read(
+            b"20 00 [ nested [comment] here ] FF"), equal_to(b"2000FF"))
 
     def test_newline_end_of_stream(self):
-        assert_that(self.stream_read(b"20 00 [ nested [comment] here ]\n FF"), equal_to(b"2000"))
+        assert_that(self.stream_read(
+            b"20 00 [ nested [comment] here ]\n FF"), equal_to(b"2000"))
 
     def test_ignores_non_hex_chars(self):
         assert_that(self.stream_read(b"FfZfF"), equal_to(b"FffF"))
@@ -137,6 +149,7 @@ class ChunkedHexTextInputStreamTestCase(unittest.TestCase):
 
 
 class BinaryToHexOutputStreamTestCase(unittest.TestCase):
+
     def test_write_bytes(self):
         store = io.BytesIO()
         stream = self.create_stream(store)
@@ -177,14 +190,17 @@ class BinaryToHexOutputStreamTestCase(unittest.TestCase):
 
 
 class TextHexStreamTestCase(unittest.TestCase):
+
     def test_converts_hex_and_skips_spaces(self):
-        assert_that(self.stream_read(b"20 01 40"), is_(equal_to(b"\x20\x01\x40")))
+        assert_that(self.stream_read(b"20 01 40"),
+                    is_(equal_to(b"\x20\x01\x40")))
 
     def test_bytes_must_contain_two_hex_digits(self):
         assert_that(self.stream_read(b"20 01 4"), is_(equal_to(b"\x20\x01")))
 
     def test_comments_ignored(self):
-        assert_that(self.stream_read(b"20 [comment 01] 40"), is_(equal_to(b"\x20\x40")))
+        assert_that(self.stream_read(
+            b"20 [comment 01] 40"), is_(equal_to(b"\x20\x40")))
 
     def test_no_read_past_newline(self):
         stream = self.build_stream(b"12 34 \n 56")
@@ -203,7 +219,8 @@ class TextHexStreamTestCase(unittest.TestCase):
         stream.stream.next_chunk()
         assert_that(collect_stream(stream), is_(equal_to(b"\x56")))
         buffer = stream.detach().detach()
-        assert_that(collect_stream(buffer), is_(equal_to(b"")), "expected base stream to be completely read")
+        assert_that(collect_stream(buffer), is_(equal_to(b"")),
+                    "expected base stream to be completely read")
 
     def test_read_bytes(self):
         stream = self.build_stream(b"12 34 \n 56  [12] ")
@@ -233,6 +250,7 @@ class TextHexStreamTestCase(unittest.TestCase):
 
 
 class BrewpiV030ProtocolSendRequestTestCase(unittest.TestCase):
+
     def setUp(self):
         self.conduit = DefaultConduit(BytesIO(), BytesIO())
         self.sut = ControllerProtocolV030(self.conduit, lambda: None)
@@ -277,12 +295,14 @@ class BrewpiV030ProtocolDecodeResponseTestCase(unittest.TestCase):
     def setUp(self):
         self.input_buffer = RWCacheBuffer()
         self.output_buffer = RWCacheBuffer()
-        self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
+        self.conduit = DefaultConduit(
+            self.input_buffer.reader, self.output_buffer.writer)
         self.sut = ControllerProtocolV030(self.conduit)
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.push_response([1, 0x81, 0x82, 3, 0, 2, 4, 5])         # emulate a on-wire response
+        # emulate a on-wire response
+        self.push_response([1, 0x81, 0x82, 3, 0, 2, 4, 5])
         assert_future(future, is_(equal_to(bytes([4, 5]))))
 
     def test_resposne_must_match(self):
@@ -298,10 +318,12 @@ class BrewpiV030ProtocolDecodeResponseTestCase(unittest.TestCase):
         future2 = self.sut.read_value([1, 2, 4])
 
         # push all the data, to be sure that
-        self.push_response([1, 0x81, 0x82, 4, 0, 2, 2, 3])         # matches request 2
+        self.push_response([1, 0x81, 0x82, 4, 0, 2, 2, 3]
+                           )         # matches request 2
         assert_future(future2, is_(equal_to(bytes([2, 3]))))
         assert_that(future1.done(), is_(False))
-        self.push_response([1, 0x81, 0x82, 3, 0, 3, 4, 5, 6])      # matches request 1
+        self.push_response([1, 0x81, 0x82, 3, 0, 3, 4, 5, 6]
+                           )      # matches request 1
         assert_future(future1, is_(equal_to(bytes([4, 5, 6]))))
 
     def push_response(self, data):
@@ -312,11 +334,14 @@ class BrewpiV030ProtocolDecodeResponseTestCase(unittest.TestCase):
 
 class BrewpiV030ProtocolHexEncodingTestCase(unittest.TestCase):
     """ A more complete test where multiple commands are sent, and the on-wire hex-encoded values are used. """
+
     def setUp(self):
         self.input_buffer = RWCacheBuffer()
         self.output_buffer = RWCacheBuffer()
-        # this represents the far end of the pipe - input/output bytes sent as hex encoded binary
-        self.conduit = DefaultConduit(self.input_buffer.reader, self.output_buffer.writer)
+        # this represents the far end of the pipe - input/output bytes sent as
+        # hex encoded binary
+        self.conduit = DefaultConduit(
+            self.input_buffer.reader, self.output_buffer.writer)
         text = build_chunked_hexencoded_conduit(self.conduit)
         self.sut = ControllerProtocolV030(*text)
 
@@ -326,11 +351,13 @@ class BrewpiV030ProtocolHexEncodingTestCase(unittest.TestCase):
 
     def test_send_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.assert_request_sent(b'01 81 82 03 00 \n')        # NB: this is ascii encoded hex now, not binary data
+        # NB: this is ascii encoded hex now, not binary data
+        self.assert_request_sent(b'01 81 82 03 00 \n')
 
     def test_full_read_command_bytes(self):
         future = self.sut.read_value([1, 2, 3])
-        self.push_response(b'01 81 82 03 00 01 aB CD \n')      # emulate the response
+        # emulate the response
+        self.push_response(b'01 81 82 03 00 01 aB CD \n')
         assert_future(future, is_(equal_to(bytes([0xAB]))))
 
     def push_response(self, data):

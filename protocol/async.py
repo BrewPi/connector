@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 class UnknownProtocolError(Exception):
     pass
 
+
 def tobytes(arg):
     """
     >>> tobytes("abc")
@@ -59,7 +60,8 @@ class Request:
     def response_keys(self):
         """ retrieves an iterable over keys that are used to correlate requests with corresponding responses. """
         raise NotImplementedError
-        # todo - maybe just use simple iteration looking for a matching response?
+        # todo - maybe just use simple iteration looking for a matching
+        # response?
 
 
 class Response:
@@ -152,7 +154,7 @@ class AsyncHandler:
 
     def start(self):
         if self.background_thread is None:
-            t = threading.Thread(target = self._loop, args = self.args)
+            t = threading.Thread(target=self._loop, args=self.args)
             t.setDaemon(True)
             self.stop_event = threading.Event()
             self.background_thread = t
@@ -194,7 +196,8 @@ class BaseAsyncProtocolHandler:
         self._unmatched = []
         self.async_thread = None
         if matcher:
-            self._matching_futures = types.MethodType(matcher, self, BaseAsyncProtocolHandler)
+            self._matching_futures = types.MethodType(
+                matcher, self, BaseAsyncProtocolHandler)
 
     def start_background_thread(self):
         if self.async_thread is None:
@@ -231,7 +234,7 @@ class BaseAsyncProtocolHandler:
         """ arranges for the request to be streamed. This implementation is synchronous, but subclasses may choose
             to send the request asynchronously. """
         request.to_stream(self._conduit.output)
-        #self._conduit.output.flush()
+        # self._conduit.output.flush()
         self._stream_request_sent(request)
 
     def _register_future(self, future: FutureResponse):
@@ -281,7 +284,6 @@ class BaseAsyncProtocolHandler:
         """ sets the response on the given future and removes the associated request, now that it has been handled. """
         future.response = response
         self._unregister_future(future)
-
 
     def _matching_futures(self, response):
         """ finds matching futures for the given response """

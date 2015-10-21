@@ -40,6 +40,7 @@ class Conduit:
 
 
 class ConduitDecorator(Conduit):
+
     def close(self):
         self.decorate.close()
 
@@ -99,6 +100,7 @@ class ConduitStreamDecorator(ConduitDecorator):
 
 class BufferedConduit(ConduitStreamDecorator):
     """ buffers the underlying streams from the given conduit."""
+
     def _wrap_output(self, output):
         return io.BufferedWriter(output)
 
@@ -146,6 +148,7 @@ class RedirectConduit(ConduitStreamDecorator):
     def _wrap_output(self, output):
         out = output.write
         redirect = self.redirect    # the stream to write to
+
         def pipe_output(data):
             data = bytes(data)
             out(data)
@@ -156,6 +159,7 @@ class RedirectConduit(ConduitStreamDecorator):
     def _wrap_input(self, input):
         read = input.read
         redirect = self.redirect
+
         def pipe_input():
             result = read()
             redirect.write(bytes(result).decode())

@@ -13,6 +13,7 @@ apply_module(sys.modules[__name__])
 
 
 class ProcessConduitUnitTest(unittest.TestCase):
+
     def __init__(self, arg):
         super().__init__(arg)
         self.p = None
@@ -36,12 +37,12 @@ class ProcessConduitUnitTest(unittest.TestCase):
 
     @unittest.skipUnless(more_command, "more command not defined")
     def test_canCreateProcessConduitAndSendInputOutputThenTerminate(self):
-        p = ProcessConduit(more_command)  # will read from stdin and pipe to stdout
+        # will read from stdin and pipe to stdout
+        p = ProcessConduit(more_command)
         p.output.write(b"hello\r\n")
         p.output.flush()
         lines = p.input.readline()
         self.assertEqual(lines, b"hello\r\n")
-
 
 
 if __name__ == '__main__':

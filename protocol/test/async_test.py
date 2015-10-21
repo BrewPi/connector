@@ -7,6 +7,7 @@ import unittest
 
 
 class FutureValueTestCase(unittest.TestCase):
+
     def test_default_value_extractor_returns_value(self):
         f = FutureValue()
         f.set_result(123)
@@ -20,6 +21,7 @@ class FutureValueTestCase(unittest.TestCase):
 
 
 class FutureResponseTestCase(unittest.TestCase):
+
     def setUp(self):
         self.request = Request()
         self.future = FutureResponse(self.request)

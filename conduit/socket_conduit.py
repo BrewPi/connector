@@ -5,6 +5,7 @@ __author__ = 'mat'
 
 
 class SocketConduit(base.Conduit):
+
     def __init__(self, sock):
         """
         :param sock: the client socket that represents the connection
@@ -21,7 +22,8 @@ class SocketConduit(base.Conduit):
     def input(self):
         return self.read
 
-def client_socket_connector_factory(socket_opts, *args,**kwargs):
+
+def client_socket_connector_factory(socket_opts, *args, **kwargs):
     """
     Factory that produces a client socket connector.
     :param socket_opts: options for constructing the socket
@@ -34,7 +36,7 @@ def client_socket_connector_factory(socket_opts, *args,**kwargs):
     def open_socket_connector():
         sock = socket(*socket_opts)
         sock.setblocking(True)
-        sock.connect(*args,**kwargs)
+        sock.connect(*args, **kwargs)
         return SocketConduit(sock)
 
     return open_socket_connector
@@ -54,7 +56,7 @@ def server_socket_connector_factory(socket_opts, *args, **kwargs):
     def open_socket_connector(*args, **kwargs):
         sock = socket(*socket_opts)
         sock.setblocking(True)
-        sock.bind(*args,**kwargs)
+        sock.bind(*args, **kwargs)
         return SocketConduit(sock)
 
-    return open_socket_connector(*args,**kwargs)
+    return open_socket_connector(*args, **kwargs)

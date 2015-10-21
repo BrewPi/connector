@@ -41,7 +41,8 @@ def brewpi_v03x_protocol_sniffer(line, conduit):
         info = VersionParser("{" + line[1:-1] + "}")
         if info.major == 0 and info.minor == 3:
             if info.revision == 0:
-                result = ControllerProtocolV030(*build_chunked_hexencoded_conduit(conduit))
+                result = ControllerProtocolV030(
+                    *build_chunked_hexencoded_conduit(conduit))
     return result
 
 
@@ -69,6 +70,7 @@ def encode_id(idchain) -> bytearray:
         result[l - 1] = idchain[l - 1]
     return result
 
+
 def decode_id(buf) -> list():
     """
     :param buf: The id_chain as the on-wire format.
@@ -77,7 +79,7 @@ def decode_id(buf) -> list():
     >>> decode_id(bytearray([0x81, 0x82, 3]))
     [1, 2, 3]
     """
-    return [ (x & 0x7F) for x in buf ]
+    return [(x & 0x7F) for x in buf]
 
 
 class ByteArrayRequest(Request):
@@ -304,6 +306,7 @@ class ChunkedHexTextInputStream(IOBase):
 
 
 class CaptureBufferedReader:
+
     def __init__(self, stream):
         self.buffer = BytesIO()
         self.stream = stream
@@ -322,7 +325,6 @@ class CaptureBufferedReader:
     def peek_next_byte(self):
         next = self.stream.peek()
         return next[0] if next else -1
-
 
     def as_bytes(self):
         return bytes(self.buffer.getbuffer())
@@ -364,6 +366,7 @@ class ResponseDecoder(metaclass=ABCMeta):
     """  parses the response data into the data block corresponding to the original request
          and decodes the data block that is the additional response data
     """
+
     def decode_request(self, cmd_id: int, stream: BufferedIOBase):
         """ read the portion of the response that corresponds to the original request. """
         buf = CaptureBufferedReader(stream)
@@ -421,14 +424,18 @@ class ResponseDecoder(metaclass=ABCMeta):
         return self._read_signed_byte(stream)
 
     def _read_object_defn(self, buf):
-        id_chain = self._read_id_chain(buf)  # the location to create the object
+        # the location to create the object
+        id_chain = self._read_id_chain(buf)
         obj_type = self._read_byte(buf)  # the type of the object
-        ctor_params = self._read_vardata(buf)  # the object constructor data block
+        # the object constructor data block
+        ctor_params = self._read_vardata(buf)
         return id_chain, obj_type, ctor_params
 
     def _read_object_value(self, buf):
-        id_chain = self._read_id_chain(buf)  # the location to create the object
-        ctor_params = self._read_vardata(buf)  # the object constructor data block
+        # the location to create the object
+        id_chain = self._read_id_chain(buf)
+        # the object constructor data block
+        ctor_params = self._read_vardata(buf)
         return id_chain, ctor_params
 
     def _read_remainder(self, stream):
@@ -448,6 +455,7 @@ class ResponseDecoder(metaclass=ABCMeta):
 
 
 class ReadValueResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         # read the id of the object to read
         self._read_id_chain(buf)
@@ -459,6 +467,7 @@ class ReadValueResponseDecoder(ResponseDecoder):
 
 
 class WriteValueResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_id_chain(buf)    # id chain
         self._read_vardata(buf)     # length and body of data to write
@@ -469,15 +478,18 @@ class WriteValueResponseDecoder(ResponseDecoder):
 
 
 class WriteMaskedValueResponseDecoder(WriteValueResponseDecoder):
+
     def _parse(self, buf):
         self._read_id_chain(buf)    # id chain
         self._read_vardata(buf, 2)  # 2 bytes for length
+
 
 class WriteSystemMaskedValueResponseDecoder(WriteMaskedValueResponseDecoder):
     pass
 
 
 class CreateObjectResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_object_defn(buf)
 
@@ -487,6 +499,7 @@ class CreateObjectResponseDecoder(ResponseDecoder):
 
 
 class DeleteObjectResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_id_chain(buf)  # the location of the object to delete
 
@@ -496,6 +509,7 @@ class DeleteObjectResponseDecoder(ResponseDecoder):
 
 
 class ListProfileResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_signed_byte(buf)        # profile id
 
@@ -512,6 +526,7 @@ class ListProfileResponseDecoder(ResponseDecoder):
 
 
 class NextFreeSlotResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_id_chain(buf)  # the container to find the next free slot
 
@@ -521,6 +536,7 @@ class NextFreeSlotResponseDecoder(ResponseDecoder):
 
 
 class NextFreeSlotRootResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):  # additional command arguments to read
         pass
 
@@ -530,6 +546,7 @@ class NextFreeSlotRootResponseDecoder(ResponseDecoder):
 
 
 class CreateProfileResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         pass  # no additional command parameters
 
@@ -539,6 +556,7 @@ class CreateProfileResponseDecoder(ResponseDecoder):
 
 
 class DeleteProfileResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_byte(buf)  # profile_id
 
@@ -548,6 +566,7 @@ class DeleteProfileResponseDecoder(ResponseDecoder):
 
 
 class ActivateProfileResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         self._read_byte(buf)  # profile id
 
@@ -557,16 +576,19 @@ class ActivateProfileResponseDecoder(ResponseDecoder):
 
 
 class ListProfilesResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         pass  # no additional command arguments
 
     def decode_response(self, stream):
-        r = self._read_remainder(stream)  # read active profile followed by available profiles
+        # read active profile followed by available profiles
+        r = self._read_remainder(stream)
         r[0] = signed_byte(r[0])  # active profile is signed
         return r
 
 
 class ResetResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):  # additional command arguments to read
         self._read_byte(buf)  # flags
 
@@ -576,6 +598,7 @@ class ResetResponseDecoder(ResponseDecoder):
 
 
 class LogValuesResponseDecoder(ResponseDecoder):
+
     def _parse(self, buf):
         flag = self._read_byte(buf)  # flag to indicate if an id is needed
         if flag:
@@ -602,16 +625,19 @@ class AsyncLogValueDecoder(LogValuesResponseDecoder):
         flags and id_chain of the logged container are considered part of the response, rather than the request.
         The decided value for the response is a tuple (time, id_chain, values). The values is a list of tuples
          (id_chain, value) for each value logged in the hierarchy. """
+
     def _parse(self, buf):
         pass        # command byte already parsed. That's all there is.
 
     def decode_response(self, stream):
         id_chain = []
         time = self._read_block(4, stream)
-        flags = self._read_byte(stream)             # flags - indicate if there is a id chain
+        # flags - indicate if there is a id chain
+        flags = self._read_byte(stream)
         if flags:
             id_chain = self._read_id_chain(stream)  # the id of the container
-        # following this is a sequence of id_chain, len, data[] until the end of stream
+        # following this is a sequence of id_chain, len, data[] until the end
+        # of stream
         values = []
         while self.has_data(stream):
             log_id_chain = self._read_id_chain(stream)
@@ -622,6 +648,7 @@ class AsyncLogValueDecoder(LogValuesResponseDecoder):
 
 class ChunkedHexEncodedConduit(ConduitStreamDecorator):
     chunker = None
+
     def _wrap_input(self, input):
         self.chunker = ChunkedHexTextInputStream(input)
         return HexToBinaryInputStream(self.chunker)
@@ -654,13 +681,16 @@ def interleave(*args):
     """
     return bytes([x for z in zip(*args) for x in z])
 
+
 class ControllerProtocolV030AsyncResponseHandler:
+
     def __init__(self, controller):
         self.controller = controller
 
     def __call__(self, *args, **kwargs):
         for x in args:
             self.controller.handle_async_response(x)
+
 
 class ControllerProtocolV030(BaseAsyncProtocolHandler):
     """ Implements the v0.3.0 hex-encoded binary protocol.
@@ -696,7 +726,8 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         self.output = conduit.output
         self.next_chunk_input = next_chunk_input
         self.next_chunk_output = next_chunk_output
-        self.add_unmatched_response_handler(ControllerProtocolV030AsyncResponseHandler(self))
+        self.add_unmatched_response_handler(
+            ControllerProtocolV030AsyncResponseHandler(self))
         self.async_log_handlers = EventHook()
         self.async_events = EventHook()
 
@@ -707,7 +738,7 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
 
     def handle_async_response(self, response: Response):
         cmd_id = self.command_id_from_response(response)
-        if cmd_id==Commands.async_log_values:
+        if cmd_id == Commands.async_log_values:
             self.async_log_handlers.fire(response)
         else:
             self.async_events.fire(response)
@@ -760,7 +791,7 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
         return self._cmd_write_masked_value(Commands.write_system_masked_value, id_chain, buf, mask)
 
     def _cmd_write_masked_value(self, cmd, id_chain, buf, mask):
-        if len(buf)!=len(mask):
+        if len(buf) != len(mask):
             raise ValueError("mask and data buffer must be same length")
         return self._send_command(cmd, encode_id(id_chain), len(buf), interleave(buf, mask))
 
@@ -808,7 +839,8 @@ class ControllerProtocolV030(BaseAsyncProtocolHandler):
                     try:
                         value = decoder.decode_response(stream)
                         if value is None:
-                            raise ValueError("request decoder did not return a value")
+                            raise ValueError(
+                                "request decoder did not return a value")
                     except Exception as e:
                         value = e
                     return ResponseSupport(command_block, value)

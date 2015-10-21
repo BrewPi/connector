@@ -2,6 +2,7 @@ import simplejson as json
 
 __author__ = 'mat'
 
+
 class VersionParser:
     """ Parses and stores the version and other compile-time details reported by the Arduino """
     version = "v"
@@ -65,5 +66,3 @@ class VersionParser:
         parts += [0] * (3 - len(parts))  # pad to 3
         self.major, self.minor, self.revision = parts[0], parts[1], parts[2]
         self.version = s
-
-

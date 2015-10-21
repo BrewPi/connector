@@ -8,8 +8,8 @@ from protocol.v02x import ControllerProtocolV023
 import unittest
 
 
-
 __author__ = 'mat'
+
 
 def argument_capture_callback(l):
     def callback(arg):
@@ -19,6 +19,7 @@ def argument_capture_callback(l):
 
 
 class BrewpiProtocolV023UnitTest(unittest.TestCase):
+
     def setUp(self):
         self.send = RWCacheBuffer()
         self.receive = RWCacheBuffer()
@@ -34,7 +35,8 @@ class BrewpiProtocolV023UnitTest(unittest.TestCase):
 
     def test_update_values_json_request(self):
         # set the values
-        future = self.protocol.update_values_json(OrderedDict([("a", 1), ("b", 2)]))
+        future = self.protocol.update_values_json(
+            OrderedDict([("a", 1), ("b", 2)]))
 
         # verify stream data was written
         self.assert_request(b'j{"a": 1, "b": 2}\n')
@@ -43,13 +45,16 @@ class BrewpiProtocolV023UnitTest(unittest.TestCase):
     def test_async_response(self):
         # register a callback that simply saves all the arguments passed
         args = list()
-        self.protocol.add_unmatched_response_handler(argument_capture_callback(args))
+        self.protocol.add_unmatched_response_handler(
+            argument_capture_callback(args))
 
-        self.receive.writer.write(b'C{"a": 1, "b": 2}\n')         # fake a received command
+        # fake a received command
+        self.receive.writer.write(b'C{"a": 1, "b": 2}\n')
         self.receive.writer.flush()
         r = self.protocol.read_response()
         assert_that(r, is_(not_none()), "no response received")
-        assert_that(r.value, equal_to({"a": 1, "b": 2}), "expected response from contents in stream")
+        assert_that(r.value, equal_to(
+            {"a": 1, "b": 2}), "expected response from contents in stream")
         assert_that(args[0], is_(r), "expected callback to have been invoked")
 
     def assert_request(self, expected):

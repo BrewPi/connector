@@ -9,6 +9,7 @@ import unittest
 class ControllerTest(unittest.TestCase):
     """ unit test for the controller
     """
+
     def test_containers_equal(self):
         c = Controller()
         p = SystemProfile(c, 1)

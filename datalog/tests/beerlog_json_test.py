@@ -30,21 +30,27 @@ class JsonDecodeTestCase(unittest.TestCase):
         assert_that(p, equal_to(expected))
 
     def test_invalid_format(self):
-        self.assertRaises(ValueError, lambda: parse_datetime('date(2013,1,1,0,0,0)'))
-        self.assertRaises(ValueError, lambda: parse_datetime('Dat(2013,1,1,0,0,0)'))
+        self.assertRaises(
+            ValueError, lambda: parse_datetime('date(2013,1,1,0,0,0)'))
+        self.assertRaises(
+            ValueError, lambda: parse_datetime('Dat(2013,1,1,0,0,0)'))
 
     def test_out_of_range(self):
-        self.assertRaises(ValueError, lambda: parse_datetime('Date(2013,12,1,0,0,0)'))
-        self.assertRaises(ValueError, lambda: parse_datetime('Date(2013,-1,1,0,0,0)'))
-        self.assertRaises(ValueError, lambda: parse_datetime('Date(2013,-1,1,24,0,0)'))
+        self.assertRaises(ValueError, lambda: parse_datetime(
+            'Date(2013,12,1,0,0,0)'))
+        self.assertRaises(ValueError, lambda: parse_datetime(
+            'Date(2013,-1,1,0,0,0)'))
+        self.assertRaises(ValueError, lambda: parse_datetime(
+            'Date(2013,-1,1,24,0,0)'))
 
 
 class LogFileListingTestCase(unittest.TestCase):
+
     def test_files_filtered_and_sorted(self):
         name = 'a'
         ext = '.b'
         files = [
-            'a.txt', # filtered out  - wrong extension
+            'a.txt',  # filtered out  - wrong extension
             'a-01-01.b',
             'b.b',   # filtered out  - wrong prefix
             'a-01-02-10.b',
@@ -71,19 +77,24 @@ def rows_for_log(file):
     log = BeerlogJson(file)
     return [x for x in log.rows()]
 
+
 class BeerlogJsonTest(unittest.TestCase):
     pass
+
     def test_invalid_json_prints_file(self):
         file = lambda: io.StringIO('{abc')     # broken json
         assert_that(calling(rows_for_log).with_args(file),
-            raises(ImportError, pattern='error decoding ".*"$'))
+                    raises(ImportError, pattern='error decoding ".*"$'))
 
 
 t = datetime.now()
 t -= timedelta(microseconds=t.microsecond)          # second precision
-d1_old = [t, 20, 10, "beer me", 5, 1, None ]        # old format with just 5 columns
-d1_old_row = [t, 20, 10, "beer me", 5, 1, None, None, None ] # two additional elements
-d1 = [t, 20, 10, "beer me", 5, 1, None, 0, 3.5 ]
+# old format with just 5 columns
+d1_old = [t, 20, 10, "beer me", 5, 1, None]
+d1_old_row = [t, 20, 10, "beer me", 5, 1, None,
+              None, None]  # two additional elements
+d1 = [t, 20, 10, "beer me", 5, 1, None, 0, 3.5]
+
 
 def tovalue(v):
     """
@@ -92,7 +103,7 @@ def tovalue(v):
     >>> tovalue("abc")
     {'v': 'abc'}
     """
-    return None if v is None else { "v": v }
+    return None if v is None else {"v": v}
 
 
 def json_date_str(now):
@@ -102,18 +113,19 @@ def json_date_str(now):
 
 def dataseries_from_row(row):
     """ converts from a raw row type to the gviz json encoding """
-    values = [ tovalue(json_date_str(row[0])) ]
+    values = [tovalue(json_date_str(row[0]))]
     for r in row[1:]:
         values.append(tovalue(r))
-    result = { "c" :  values }
+    result = {"c":  values}
     return result
 
 
 def build_json_file(colnames, data):
     """ creates a string representing a json file containing the data items"""
     d = {}
-    d['cols'] = [ {'id': str(c).upper() } for c in colnames ]   # make uppercase - comparison should be case insensitive
-    d['rows'] = [ dataseries_from_row(x) for x in data ]
+    # make uppercase - comparison should be case insensitive
+    d['cols'] = [{'id': str(c).upper()} for c in colnames]
+    d['rows'] = [dataseries_from_row(x) for x in data]
     return simplejson.dumps(d)
 
 
@@ -121,8 +133,9 @@ class BeerlogJsonRepoTest(unittest.TestCase):
 
     def test_enumerate_directories_as_series_names(self):
         root = fs.memoryfs.MemoryFS()
-        temp = root.makeopendir("temp")      # not really needed just be sure we can work with subpaths
-        names = [ "Hogwash Hefe", "Bog Fish Head", "Foaming at the mouth" ]
+        # not really needed just be sure we can work with subpaths
+        temp = root.makeopendir("temp")
+        names = ["Hogwash Hefe", "Bog Fish Head", "Foaming at the mouth"]
         for n in names:
             temp.makedir(n)
 
@@ -135,8 +148,10 @@ class BeerlogJsonRepoTest(unittest.TestCase):
             then one row is returned. the row matches the one in the file.
         """
         root = fs.memoryfs.MemoryFS()
-        brew = root.makeopendir("brew")      # not really needed just be sure we can work with subpaths
-        file1 = brew.setcontents("brew-01.json", build_json_file(v021_columns, [ d1 ]))
+        # not really needed just be sure we can work with subpaths
+        brew = root.makeopendir("brew")
+        file1 = brew.setcontents(
+            "brew-01.json", build_json_file(v021_columns, [d1]))
         repo = BeerlogJsonRepo(root)
         ts = repo.fetch("brew")
 
@@ -144,23 +159,24 @@ class BeerlogJsonRepoTest(unittest.TestCase):
         assert_that(len(rows), is_(1), "one row timeseries expected")
         assert_that(rows[0], is_(equal_to(d1)))
 
-
     def test_timeseries_from_old_format_jsonfiles_in_folder(self):
         """ given a "brew" directory with a single file of the format <name>-<numbers>.json containing a single entry,
             when the time series is read
             then one row is returned. the row matches the one in the file.
         """
         root = fs.memoryfs.MemoryFS()
-        brew = root.makeopendir("brew")      # not really needed just be sure we can work with subpaths
-        file1 = brew.setcontents("brew-01.json", build_json_file(v010_columns, [ d1_old ]))
+        # not really needed just be sure we can work with subpaths
+        brew = root.makeopendir("brew")
+        file1 = brew.setcontents(
+            "brew-01.json", build_json_file(v010_columns, [d1_old]))
         repo = BeerlogJsonRepo(root)
         ts = repo.fetch("brew")
 
         rows = [r for r in ts.rows()]
         assert_that(len(rows), is_(1), "one row timeseries expected")
-        assert_that(rows[0], is_(equal_to(d1_old_row)), "old format is extended with 2 additional columns, filled with None")
+        assert_that(rows[0], is_(equal_to(
+            d1_old_row)), "old format is extended with 2 additional columns, filled with None")
 
 
 if __name__ == '__main__':
     unittest.main()
-

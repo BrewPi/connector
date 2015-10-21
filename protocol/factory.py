@@ -21,4 +21,5 @@ def determine_protocol(conduit: Conduit):
         except ValueError as e:
             error = e
             break
-    raise UnknownProtocolError("unable to determine version from '%s'" % l) from error
+    raise UnknownProtocolError(
+        "unable to determine version from '%s'" % l) from error

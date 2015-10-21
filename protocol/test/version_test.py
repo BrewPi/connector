@@ -3,7 +3,10 @@ from hamcrest import assert_that, calling, raises
 from protocol.version import VersionParser
 
 # noinspection PyPep8Naming
+
+
 class VersionTestCase(unittest.TestCase):
+
     def assertVersionEqual(self, v, major, minor, rev, versionString):
         self.assertEqual(major, v.major)
         self.assertEqual(minor, v.minor)

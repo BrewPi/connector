@@ -42,7 +42,7 @@ class TimeSeries:
         :return: the start and end range for this time series. If the series is empty returns None.
         :rtype: tuple or None
         """
-        r = [ x for x in self.rows()]
+        r = [x for x in self.rows()]
         return None if not r else (min(x[0] for x in r), max(x[0] for x in r))
 
     @abstractmethod
@@ -55,13 +55,13 @@ class TimeSeries:
         raise NotImplementedError
 
     @abstractmethod
-    def append(self, row:list):
+    def append(self, row: list):
         """
         inserts data into the time series. the time must be greater than the previously inserted time or a ValueError is raised.
         """
         raise NotImplementedError
 
-    def append_bulk(self, rows:list):
+    def append_bulk(self, rows: list):
         """
         Appends multiple rows on one operation. Subclasses are encouraged to override this method to make the insert more efficient.
         """
@@ -69,7 +69,7 @@ class TimeSeries:
             self.append(r)
 
     @staticmethod
-    def validate(data:list):
+    def validate(data: list):
         """
         >>> TimeSeries.validate([datetime.now()])
         True
@@ -89,7 +89,7 @@ class CompositeTimeSeries(TimeSeries):
     Joins several time series together
     """
 
-    def __init__(self, name, serieses:list):
+    def __init__(self, name, serieses: list):
         """
         :param serieses:    multiple series (gollum)
 
@@ -107,9 +107,9 @@ class CompositeTimeSeries(TimeSeries):
         last_series = None
         row_count = 0
         for s in self.serieses:     # each series
-            for i,r in enumerate(s.rows()):      # each row
+            for i, r in enumerate(s.rows()):      # each row
                 t = r[0]
-                row_count+=1
+                row_count += 1
                 if last_time is None or last_time <= t:
                     last_time = t
                     last_series = s
@@ -119,7 +119,7 @@ class CompositeTimeSeries(TimeSeries):
                                      % (self.name, row_count, last_time, last_series, i, t, s))
                 yield r
 
-    def append(self, data:iter):
+    def append(self, data: iter):
         self.serieses[-1].append(data)
 
 
@@ -127,13 +127,13 @@ class ListTimeSeries(TimeSeries):
     """ a simple time series implementation based on a list of rows
     """
 
-    def __init__(self, data:list):
+    def __init__(self, data: list):
         self.data = data
 
     def rows(self):
         return self.data
 
-    def append(self, data:iter):
+    def append(self, data: iter):
         super.validate(data)
         self.data.append(data)
 
@@ -145,7 +145,6 @@ class ListTimeSeries(TimeSeries):
         True
         """
         return super().range()
-
 
 
 def select_columns(data, columns, columns_wanted):
@@ -162,10 +161,11 @@ def select_columns(data, columns, columns_wanted):
     ...
     ValueError: data and column lists not the same length: 0!=1
     """
-    if len(data)!=len(columns):
-        raise ValueError("data and column lists not the same length: %d!=%d" % (len(data), len(columns)))
-    d = {str(k).lower():v for k,v in zip(columns, data)}
-    return [d.get(k.lower(),None) for k in columns_wanted]
+    if len(data) != len(columns):
+        raise ValueError("data and column lists not the same length: %d!=%d" % (
+            len(data), len(columns)))
+    d = {str(k).lower(): v for k, v in zip(columns, data)}
+    return [d.get(k.lower(), None) for k in columns_wanted]
 
 
 v010_columns = 'time beerTemp beerSet beerAnn fridgeTemp fridgeSet fridgeAnn'.split()
@@ -173,4 +173,3 @@ v021_columns = 'time beerTemp beerSet beerAnn fridgeTemp fridgeSet fridgeAnn sta
 
 # the standard model
 ts_columns = v021_columns
-

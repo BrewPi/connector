@@ -12,8 +12,10 @@ logger = logging.getLogger(__name__)
 def is_executable(file):
     return os.path.isfile(file) and os.access(file, os.X_OK)
 
+
 class ProcessConnector(AbstractConnector):
     """ Instantiates a process and connects to it via standard in/out. """
+
     def __init__(self, image, args=None):
         super().__init__()
         self.image = image
@@ -37,6 +39,3 @@ class ProcessConnector(AbstractConnector):
 
     def _try_available(self):
         return is_executable(self.image)
-
-
-

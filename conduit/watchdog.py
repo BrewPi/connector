@@ -14,6 +14,7 @@ class ResourceEvent:
     :param resource The resource that is available. It has a least a open() method to retrieve the conduit
         and a name property.
     """
+
     def __init__(self, source, resource):
         self.source = source
         self.resource = resource
@@ -74,17 +75,16 @@ class ResourceWatchdog:
         :return:
         :rtype:
         """
-        current_resources = {p: None for p in self.previous}  # union of all previous and current ports
+        current_resources = {
+            p: None for p in self.previous}  # union of all previous and current ports
         current_resources.update(available)
         events = []
-        for handle,current in current_resources.items():
+        for handle, current in current_resources.items():
             previous = self.previous.get(handle, None)
             if current != previous:
-                not previous or events.append(ResourceUnavailableEvent(handle, self._detach(handle, previous)))
-                not current or events.append(ResourceAvailableEvent(handle, self._attach(handle, current)))
+                not previous or events.append(ResourceUnavailableEvent(
+                    handle, self._detach(handle, previous)))
+                not current or events.append(ResourceAvailableEvent(
+                    handle, self._attach(handle, current)))
         self.previous = available
         self.listeners.fire_all([e for e in events if e.resource])
-
-
-
-

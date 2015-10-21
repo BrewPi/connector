@@ -15,17 +15,20 @@ value2 = None
 value3 = None
 value4 = None
 
+
 @attr(fixture='config')
 class ConfigTestCase(unittest.TestCase):
+
     def test_can_retrieve_config_file(self):
         file = config_filename(config_name)
-        assert_that(os.path.exists(file), is_(True), "expected config path %s to exist" % file)
+        assert_that(os.path.exists(file), is_(True),
+                    "expected config path %s to exist" % file)
 
     def test_can_apply_module(self):
         this_module = sys.modules[__name__]
         apply_module(this_module)
         assert_that(value1, is_(equal_to('def')))
-        assert_that(value2, is_(equal_to(['1','2','3'])))
+        assert_that(value2, is_(equal_to(['1', '2', '3'])))
         assert_that(value3, is_(4))
         assert_that(value4, is_(50))
         assert_that(this_module, is_not(has_property("missing_value")))
@@ -33,4 +36,3 @@ class ConfigTestCase(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

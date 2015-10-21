@@ -32,7 +32,6 @@ class CommonEqualityMixin(object):
     def __str__(Self):
         return super().__str__() + ':' + str(Self.__dict__)
 
-
     def _dicts_equal(Self, other):
         global seen
         p = (Self, other)
@@ -96,6 +95,7 @@ class ObjectReference(BaseControllerObject):
 
 
 class ObjectEvent():
+
     def __init__(Self, source, data=None):
         Self.source = source
         Self.data = data
@@ -110,6 +110,7 @@ class ObjectDeletedEvent(ObjectEvent):
 
 
 class ControllerObject(BaseControllerObject):
+
     @property
     @abstractmethod
     def id_chain(Self):
@@ -121,6 +122,7 @@ class ControllerObject(BaseControllerObject):
 
 
 class ContainerTraits:
+
     @abstractmethod
     def id_chain_for(Self, slot):
         raise NotImplementedError
@@ -144,6 +146,7 @@ class TypedObject:
 
 
 class InstantiableObject(ControllerObject, TypedObject):
+
     def __init__(Self, controller):
         super().__init__(controller)
         Self.definition = None
@@ -174,7 +177,8 @@ class ContainedObject(ControllerObject):
     """
 
     def __init__(Self, controller: Controller, container: ContainerTraits, slot: int):
-        # todo - push the profile up to the root container and store controller in that.
+        # todo - push the profile up to the root container and store controller
+        # in that.
         """
             :param controller:  The controller containing this object.
             :param container:   The container hosting this object. Will be None if this is the root container.
@@ -200,6 +204,7 @@ class ContainedObject(ControllerObject):
 
 
 class UserObject(InstantiableObject, ContainedObject):
+
     def __init__(Self, controller: Controller, container: ContainerTraits, slot: int):
         super(InstantiableObject, Self).__init__(controller, container, slot)
         super(ContainedObject, Self).__init__(controller)
@@ -223,25 +228,27 @@ class Container(ContainedObject, ContainerTraits):
 
 
 class OpenContainerTraits:
+
     @abstractmethod
-    def add(Self, obj:ContainedObject):
+    def add(Self, obj: ContainedObject):
         raise NotImplementedError
 
-    def remove(Self, obj:ContainedObject):
+    def remove(Self, obj: ContainedObject):
         raise NotImplementedError
 
-    def notify_added(Self, obj:ContainedObject):
+    def notify_added(Self, obj: ContainedObject):
         """ Notification from the controller that this object will be added to this container. This is called
             after the object has been added in the controller
             """
 
-    def notify_removed(Self, obj:ContainedObject):
+    def notify_removed(Self, obj: ContainedObject):
         """ Notification from the controller that this object will be removed from this container. This is called
             prior to removing the object from the container in the controller and clearing the container member in the
             contained object. """
 
 
 class RootContainerTraits(ContainerTraits):
+
     def id_chain_for(Self, slot):
         return slot,
 
@@ -268,8 +275,8 @@ class SystemProfile(BaseControllerObject):
 
     def __eq__(Self, other):
         return other is Self or \
-               (type(other) == type(
-                   Self) and Self.profile_id == other.profile_id and Self.controller is other.controller)
+            (type(other) == type(
+                Self) and Self.profile_id == other.profile_id and Self.controller is other.controller)
 
     def refresh(Self, obj):
         return Self.object_at(obj.id_chain)
@@ -282,7 +289,8 @@ class SystemProfile(BaseControllerObject):
             Self.controller.activate_profile(None)
 
     def delete(Self):
-        # todo - all contained objects should refer to the profile they are contained in, and
+        # todo - all contained objects should refer to the profile they are
+        # contained in, and
         Self.controller.delete_profile(Self)
 
     @property
@@ -323,9 +331,10 @@ class SystemProfile(BaseControllerObject):
         """
         Self._add(ControllerLoopContainer(Self))
         for ref in Self.controller.list_objects(Self):
-            Self.controller._instantiate_stub(ref.obj_class, ref.container, ref.id_chain, ref.args)
+            Self.controller._instantiate_stub(
+                ref.obj_class, ref.container, ref.id_chain, ref.args)
 
-    def _add(Self, obj:ControllerObject):
+    def _add(Self, obj: ControllerObject):
         Self._objects[tuple(obj.id_chain)] = obj
 
     def _remove(Self, id_chain):
@@ -370,7 +379,8 @@ class ForwardingDecoder(ValueDecoder):
     decoder = None
 
     def __init__(Self, decoder=None):
-        if decoder: Self.decoder = decoder
+        if decoder:
+            Self.decoder = decoder
 
     def encoded_len(Self):
         return Self.decoder.encoded_len()
@@ -406,7 +416,8 @@ class ValueEncoder:
         """ Encodes a tuple representing a value and a mask into a a pair of byte buffers encoding the value and the
             write mask.
         """
-        buf, mask = Self._encode_mask(value, bytearray(Self.encoded_len()), bytearray(Self.encoded_len()))
+        buf, mask = Self._encode_mask(value, bytearray(
+            Self.encoded_len()), bytearray(Self.encoded_len()))
         return bytes(buf), bytes(mask)
 
     def _encode_mask(Self, value, buf_value, buf_mask):
@@ -433,7 +444,8 @@ class ForwardingEncoder(ValueEncoder):
     encoder = None
 
     def __init__(Self, encoder=None):
-        if encoder: Self.encoder = encoder
+        if encoder:
+            Self.encoder = encoder
 
     def encoded_len(Self):
         return Self.encoder.encoded_len()
@@ -446,6 +458,7 @@ class ForwardingEncoder(ValueEncoder):
 
 
 class ValueChangedEvent(ObjectEvent):
+
     def __init__(Self, source, before, after):
         super().__init__(source, (before, after))
 
@@ -457,6 +470,7 @@ class ValueChangedEvent(ObjectEvent):
 
 
 class ValueObject(ContainedObject):
+
     def __init__(Self, controller, container, slot):
         super().__init__(controller, container, slot)
         Self.previous = None
@@ -470,13 +484,16 @@ class ValueObject(ContainedObject):
 
 
 class ReadableObject(ValueObject, ValueDecoder):
+
     def read(Self):
         return Self.controller.read_value(Self)
 
 
 class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
+
     def write(Self, value):
-        fn = Self.controller.write_masked_value if Self.is_masked_write(value) else Self.controller.write_value
+        fn = Self.controller.write_masked_value if Self.is_masked_write(
+            value) else Self.controller.write_value
         return fn(Self, value)
 
     def is_masked_write(Self, value):
@@ -484,11 +501,13 @@ class WritableObject(ValueObject, ValueDecoder, ValueEncoder):
 
 
 class MaskedWritableObject(WritableObject):
+
     def is_masked_write(Self, value):
         return True
 
 
 class UnsignedLongDecoder(ValueDecoder):
+
     def _decode(Self, buf):
         return ((((buf[3] * 256) + buf[2]) * 256) + buf[1]) * 256 + buf[0]
 
@@ -497,6 +516,7 @@ class UnsignedLongDecoder(ValueDecoder):
 
 
 class LongDecoder(ValueDecoder):
+
     def _decode(Self, buf):
         """ decodes a little-endian encoded 4 byte value. """
         return ((((signed_byte(buf[3]) * 256) + buf[2]) * 256) + buf[1]) * 256 + buf[0]
@@ -506,6 +526,7 @@ class LongDecoder(ValueDecoder):
 
 
 class UnsignedShortDecoder(ValueDecoder):
+
     def _decode(Self, buf):
         return ((buf[1]) * 256) + buf[0]
 
@@ -514,6 +535,7 @@ class UnsignedShortDecoder(ValueDecoder):
 
 
 class ShortEncoder(ValueEncoder):
+
     def _encode(Self, value, buf):
         if value < 0:
             value += 64 * 1024
@@ -526,6 +548,7 @@ class ShortEncoder(ValueEncoder):
 
 
 class ShortDecoder(ValueDecoder):
+
     def _decode(Self, buf):
         return (signed_byte(buf[1]) * 256) + buf[0]
 
@@ -534,6 +557,7 @@ class ShortDecoder(ValueDecoder):
 
 
 class ByteDecoder(ValueDecoder):
+
     def _decode(Self, buf):
         return signed_byte(buf[0])
 
@@ -542,6 +566,7 @@ class ByteDecoder(ValueDecoder):
 
 
 class ByteEncoder(ValueEncoder):
+
     def _encode(Self, value, buf):
         buf[0] = unsigned_byte(value)
         return buf
@@ -551,6 +576,7 @@ class ByteEncoder(ValueEncoder):
 
 
 class LongEncoder(ValueEncoder):
+
     def _encode(Self, value, buf):
         if value < 0:
             value += 1 << 32
@@ -565,11 +591,13 @@ class LongEncoder(ValueEncoder):
 
 
 class BufferDecoder(ValueDecoder):
+
     def decode(Self, buf):
         return buf
 
 
 class BufferEncoder(ValueEncoder):
+
     def encode(Self, value):
         return bytes(value)
 
@@ -615,6 +643,7 @@ def mask(value, byte_count):
 
 
 class SystemTime(ReadWriteSystemObject):
+
     def encoded_len(Self):
         return 6
 
@@ -661,6 +690,7 @@ class ObjectDefinition:
 
 
 class EmptyDefinition(ObjectDefinition):
+
     @classmethod
     def decode_definition(cls, data_block):
         raise ValueError("object does not require a definition block")
@@ -671,6 +701,7 @@ class EmptyDefinition(ObjectDefinition):
 
 
 class AnyBlockDefinition(ObjectDefinition):
+
     @classmethod
     def decode_definition(cls, data_block):
         return data_block
@@ -681,6 +712,7 @@ class AnyBlockDefinition(ObjectDefinition):
 
 
 class NonEmptyBlockDefinition(ObjectDefinition):
+
     @classmethod
     def encode_definition(cls, arg):
         if not arg:
@@ -707,6 +739,7 @@ class EncoderDecoderDefinition(ObjectDefinition):
 
 
 class ReadWriteValue(ReadWriteBaseObject):
+
     @property
     def value(Self):
         return Self.read()
@@ -721,13 +754,15 @@ class DynamicContainer(EmptyDefinition, UserObject, OpenContainerTraits, Contain
 
 
 class ControllerLoopState(CommonEqualityMixin):
+
     def __init__(Self, enabled=None, log_period=None, period=None):
-        if log_period is not None and (log_period<0 or log_period>7):
-            raise ValueError("invalid log period "+str(log_period))
-        if period is not None and (period<0 or period>65535):
-            raise ValueError("invalid period "+period)
+        if log_period is not None and (log_period < 0 or log_period > 7):
+            raise ValueError("invalid log period " + str(log_period))
+        if period is not None and (period < 0 or period > 65535):
+            raise ValueError("invalid period " + period)
         Self._enabled = enabled
-        Self._log_period = log_period  # range from 0..7. The log period is 0 if zero, else 2^(n-1)
+        # range from 0..7. The log period is 0 if zero, else 2^(n-1)
+        Self._log_period = log_period
         Self._period = period
 
     @staticmethod
@@ -765,7 +800,7 @@ class ControllerLoop(MaskedWritableObject, ReadWriteUserObject, ReadWriteValue):
     def encoded_len(Self):
         return ControllerLoopState.encoded_len()
 
-    def _encode_mask(Self, value:ControllerLoopState, buf_value, buf_mask):
+    def _encode_mask(Self, value: ControllerLoopState, buf_value, buf_mask):
         value.encode_mask(buf_value, buf_mask)
         return buf_value, buf_mask
 
@@ -774,12 +809,13 @@ class ControllerLoop(MaskedWritableObject, ReadWriteUserObject, ReadWriteValue):
 
 
 class ControllerLoopContainer(RootContainer):
+
     def __init__(Self, profile):
         super().__init__(profile)
         Self.config_container = DynamicContainer(Self.controller, Self, 0)
         Self.configs = dict()
 
-    def configuration_for(Self, o:ContainedObject) -> ControllerLoop:
+    def configuration_for(Self, o: ContainedObject) -> ControllerLoop:
         if o.container != Self:
             raise ValueError()
         return Self.configurations[o.slot]
@@ -791,15 +827,16 @@ class ControllerLoopContainer(RootContainer):
         """
         return Self.configs
 
-    def notify_added(Self, obj:ContainedObject):
+    def notify_added(Self, obj: ContainedObject):
         """ When an object is added, the controller also adds a config object to the config container. """
-        Self.configs[obj.slot] = ControllerLoop(Self.controller, Self.config_container, obj.slot)
+        Self.configs[obj.slot] = ControllerLoop(
+            Self.controller, Self.config_container, obj.slot)
 
-    def notify_removed(Self, obj:ContainedObject):
+    def notify_removed(Self, obj: ContainedObject):
         del Self.configs[obj.slot]
 
 
-def fetch_dict(d:dict, k, generator):
+def fetch_dict(d: dict, k, generator):
     existing = d.get(k, None)
     if existing is None:
         d[k] = existing = generator(k)
@@ -852,15 +889,15 @@ class BaseController(Controller):
         for obj, value in object_values:
             obj._update_value(value)
 
-
     def system_id(Self) -> SystemID:
         return SystemID(Self, Self._sysroot, 0)
 
     def system_time(Self) -> SystemTime:
-        # todo - would be cleaner if we used cached instance rather than creating a new instance each time
+        # todo - would be cleaner if we used cached instance rather than
+        # creating a new instance each time
         return SystemTime(Self, Self._sysroot, 1)
 
-    def initialize(Self, fetch_id:callable, load_profile=True):
+    def initialize(Self, fetch_id: callable, load_profile=True):
         Self._profiles = dict()
         Self._current_profile = None
         id_obj = Self.system_id()
@@ -870,7 +907,8 @@ class BaseController(Controller):
             id_obj.write(current_id)
         if load_profile:
             Self._set_current_profile(Self.active_and_available_profiles()[0])
-        Self.p.async_log_handlers += lambda x: Self.handle_async_log_values(x.value)
+        Self.p.async_log_handlers += lambda x: Self.handle_async_log_values(
+            x.value)
         return current_id
 
     def full_erase(Self):
@@ -879,16 +917,19 @@ class BaseController(Controller):
             Self.delete_profile(p)
 
     def read_value(Self, obj: ReadableObject):
-        fn = Self.p.read_system_value if Self.is_system_object(obj) else Self.p.read_value
+        fn = Self.p.read_system_value if Self.is_system_object(
+            obj) else Self.p.read_value
         data = Self._fetch_data_block(fn, obj.id_chain, obj.encoded_len())
         return obj.decode(data)
 
     def write_value(Self, obj: WritableObject, value):
-        fn = Self.p.write_system_value if Self.is_system_object(obj) else Self.p.write_value
+        fn = Self.p.write_system_value if Self.is_system_object(
+            obj) else Self.p.write_value
         return Self._write_value(obj, value, fn)
 
     def write_masked_value(Self, obj: WritableObject, value):
-        fn = Self.p.write_system_masked_value if Self.is_system_object(obj) else Self.p.write_masked_value
+        fn = Self.p.write_system_masked_value if Self.is_system_object(
+            obj) else Self.p.write_masked_value
         return Self._write_masked_value(obj, value, fn)
 
     def delete_object(Self, obj: ContainedObject):
@@ -898,14 +939,16 @@ class BaseController(Controller):
         return Self._handle_error(Self._connector.protocol.next_slot, container.id_chain)
 
     def create_profile(Self):
-        profile_id = Self._handle_error(Self._connector.protocol.create_profile)
+        profile_id = Self._handle_error(
+            Self._connector.protocol.create_profile)
         return Self.profile_for(profile_id)
 
     def delete_profile(Self, p: SystemProfile):
         Self._handle_error(Self.p.delete_profile, p.profile_id)
         if Self._current_profile == p:
             Self._set_current_profile(None)
-        Self._profiles.pop(p.profile_id, None)  # profile may have already been deleted
+        # profile may have already been deleted
+        Self._profiles.pop(p.profile_id, None)
 
     def activate_profile(Self, p: SystemProfile or None):
         """ activates the given profile. if p is None, the current profile is deactivated. """
@@ -937,12 +980,13 @@ class BaseController(Controller):
         if erase_eeprom:  # return the id back to the pool if the device is being wiped
             current_id = Self.system_id().read()
             id_service.return_id(current_id)
-        Self._handle_error(Self.p.reset, 1 if erase_eeprom else 0 or 2 if hard_reset else 0)
+        Self._handle_error(
+            Self.p.reset, 1 if erase_eeprom else 0 or 2 if hard_reset else 0)
         if erase_eeprom:
             Self._profiles.clear()
             Self._current_profile = None
 
-    def is_system_object(Self, obj:ContainedObject):
+    def is_system_object(Self, obj: ContainedObject):
         return obj.root_container() == Self._sysroot
 
     def _write_value(Self, obj: WritableObject, value, fn):
@@ -966,7 +1010,8 @@ class BaseController(Controller):
     def uninstantiate(Self, id_chain, optional=False):
         o = Self.object_at(id_chain, optional)
         if o is not None:
-            o.container.notify_removed(o)  # notify the object's container that it has been removed
+            # notify the object's container that it has been removed
+            o.container.notify_removed(o)
         Self._current_profile._remove(id_chain)
 
     def _delete_object_at(Self, id_chain, optional=False):
@@ -990,18 +1035,21 @@ class BaseController(Controller):
         :rtype: an instance of obj_class
         """
         container = container or Self.root_container
-        slot is not None and Self._delete_object_at(container.id_chain_for(slot), optional=True)
+        slot is not None and Self._delete_object_at(
+            container.id_chain_for(slot), optional=True)
         slot = slot if slot is not None else Self.next_slot(container)
         data = (args is not None and obj_class.encode_definition(args)) or None
         dec = args and obj_class.decode_definition(data, controller=Self)
         if dec != args:
-            raise ValueError("encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
+            raise ValueError(
+                "encode/decode mismatch for value %s, encoding %s, decoding %s" % (args, data, dec))
         return Self._create_object(container, obj_class, slot, data, args)
 
     def _create_object(Self, container: Container, obj_class, slot, data: bytes, args):
         data = data or []
         id_chain = container.id_chain_for(slot)
-        Self._handle_error(Self._connector.protocol.create_object, id_chain, obj_class.type_id, data)
+        Self._handle_error(Self._connector.protocol.create_object,
+                           id_chain, obj_class.type_id, data)
         obj = Self._instantiate_stub(obj_class, container, id_chain, args)
         return obj
 
@@ -1072,7 +1120,8 @@ class BaseController(Controller):
         """ converts the obj_type (int) to the object class, converts the id to a container+slot reference, and
             decodes the data.
         """
-        # todo - the object descriptors should be in order so that we can dynamically build the container proxy
+        # todo - the object descriptors should be in order so that we can
+        # dynamically build the container proxy
         container, slot = Self._container_slot_from_id_chain(id_chain)
         cls = Self._object_types.from_id(obj_type)
         args = cls.decode_definition(data, controller=Self) if data else None

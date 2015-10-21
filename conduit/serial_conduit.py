@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 
 class SerialConduit(base.Conduit):
+
     def __init__(self, ser: Serial):
         self.ser = ser
 
@@ -72,7 +73,9 @@ def matches(text, regex):
 def is_recognised_device(p):
     port, name, desc = p
     for d in known_devices.keys():
-        if matches(desc, d[1]): # used to match on name and desc, but under linux only desc is returned, compard
+        # used to match on name and desc, but under linux only desc is
+        # returned, compard
+        if matches(desc, d[1]):
             return True         # to name and desc on windows
     return False
 
@@ -96,7 +99,8 @@ def detect_port(port):
         all_ports = serial_port_info()
         ports = tuple(find_arduino_ports(all_ports))
         if not ports:
-            raise ValueError("Could not find arduino-compatible device in available ports. %s" % repr(all_ports))
+            raise ValueError(
+                "Could not find arduino-compatible device in available ports. %s" % repr(all_ports))
         return ports[0]
     return port
 
@@ -106,7 +110,8 @@ def configure_serial_for_device(s, d):
     :param s the Serial instance to configure
     :param d the device (port, name, details) to configure the serial port
     """
-    # for now, all devices connect at 57600 baud with defaults for parity/stop bits etc.
+    # for now, all devices connect at 57600 baud with defaults for parity/stop
+    # bits etc.
     s.setBaudrate(57600)
 
 
@@ -118,9 +123,10 @@ class SerialWatchdog(ResourceWatchdog):
         self.update_ports(tuple(serial_port_info()))
 
     def is_allowed(self, key, device):
-        return super().is_allowed(key, device) and is_recognised_device(device);
+        return super().is_allowed(key, device) and is_recognised_device(device)
 
     def update_ports(self, all_ports):
         """ computes the available serial port/device map from a list of tuples (port, name, desc). """
-        available = {p[0]: p for p in all_ports if self.is_allowed(p[0], p) and is_recognised_device(p)}
+        available = {p[0]: p for p in all_ports if self.is_allowed(
+            p[0], p) and is_recognised_device(p)}
         self.update(available)

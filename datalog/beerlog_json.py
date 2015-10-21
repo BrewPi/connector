@@ -7,7 +7,9 @@ from datalog.beerlog import TimeSeries, TimeSeriesRepo, CompositeTimeSeries, sel
 import simplejson as json
 from fs.base import FS
 
+
 class BeerlogJsonRepo(TimeSeriesRepo):
+
     @staticmethod
     def is_valid_name(name) -> bool:
         """
@@ -18,15 +20,16 @@ class BeerlogJsonRepo(TimeSeriesRepo):
         >>> BeerlogJsonRepo.is_valid_name('frog wort brew 123')
         True
         """
-        return name not in ('.','..')
+        return name not in ('.', '..')
 
-    def __init__(self, dir:FS):
+    def __init__(self, dir: FS):
         self.dir = dir
 
     def names(self) -> list:
         """ the names are the subdirectories under the repo directory """
         #names = [f for f in os.listdir(self.dir) if os.path.isdir(os.path.join(self.dir, f)) and self.is_valid_name(f)]
-        names = [f for f in self.dir.listdir('/', dirs_only=True) if self.is_valid_name(f)]
+        names = [f for f in self.dir.listdir(
+            '/', dirs_only=True) if self.is_valid_name(f)]
         return names
 
     def create(self, name):
@@ -37,7 +40,8 @@ class BeerlogJsonRepo(TimeSeriesRepo):
         files = log_files(basedir)
         return CompositeTimeSeries(name, [BeerlogJson(delay_open(basedir, f)) for f in files])
 
-def delay_open(fs:FS, name:str):
+
+def delay_open(fs: FS, name: str):
     def do_open():
         return fs.open(name)
     return do_open
@@ -48,7 +52,7 @@ def parse_colspec(data):
     >>> parse_colspec( {'blah':"abc", 'cols': [ {'id':"abc"},{'id':"def"} ] })
     ['abc', 'def']
     """
-    return [ x['id'] for x in data['cols']]
+    return [x['id'] for x in data['cols']]
 
 
 class BeerlogJson(TimeSeries):
@@ -56,7 +60,8 @@ class BeerlogJson(TimeSeries):
     Encapsulates reading beer log data from a single json file.
         :param file a file like object to read from
     """
-    def __init__(self, file:callable):
+
+    def __init__(self, file: callable):
         self.file_callable = file
 
     def __str__(self):
@@ -73,9 +78,10 @@ class BeerlogJson(TimeSeries):
             for r in rows:
                 yield select_columns(r, colspec, ts_columns)
         except Exception as e:
-            raise ImportError('error decoding "%s"' % self.file_callable) from e
+            raise ImportError('error decoding "%s"' %
+                              self.file_callable) from e
 
-    def append(self, data:iter):
+    def append(self, data: iter):
         raise NotImplementedError
 
 
@@ -116,7 +122,8 @@ def brewpi_log_rows(log):
         c = row['c']
         dt = parse_datetime(extract_value(c[0]))
         # the time is in local time (but without any DST info) - convert to UTF
-        # we could look for jumps backwards or forwards within the same file to determine a DST change
+        # we could look for jumps backwards or forwards within the same file to
+        # determine a DST change
         data = [dt]
         data.extend([extract_value(x) for x in c[1:]])
         yield data
@@ -136,14 +143,16 @@ def parse_datetime(s) -> datetime:
     # this doesn't work - won't accept month 0
     # d = datetime.strptime(s, 'Date(%Y,%m,%d,%H,%M,%S)')
     if s.startswith('Date(') and s.endswith(')'):
-        values = [int(x) for x in s[5:-1].split(',')]   # remove Date(), pull out comm-separated values
-        values[1] += 1                                    # increment 0-based month value
+        # remove Date(), pull out comm-separated values
+        values = [int(x) for x in s[5:-1].split(',')]
+        # increment 0-based month value
+        values[1] += 1
         return datetime(*values)
 
     raise ValueError('invalid date format: %s ' % (s))
 
 
-def log_files(dir:SubFS) -> list:
+def log_files(dir: SubFS) -> list:
     """
     Given a directory, produces a list of json files in ascending chronological order.
     :param dir:
@@ -155,6 +164,7 @@ def log_files(dir:SubFS) -> list:
     ext = '.json'
     files = [f for f in dir.listdir() if dir.isfile(f)]
     return sort_and_filter_log_files(files, name, ext)
+
 
 def sort_and_filter_log_files(files, name, ext):
     """
@@ -175,8 +185,7 @@ def sort_and_filter_log_files(files, name, ext):
     return files
 
 
-
-def sort_log_files(files:list, name:str, ext:str):
+def sort_log_files(files: list, name: str, ext: str):
     """ sorts logfiles into the correct processing order.
     :param files:   the filenames to sort
     :param name:    the name of the log (common prefix for all files)
@@ -187,6 +196,7 @@ def sort_log_files(files:list, name:str, ext:str):
     """
     files.sort(key=log_file_key_factory(name, ext))
     return files
+
 
 def strip_int_list(prefix, suffix, s) -> tuple:
     """
@@ -204,7 +214,7 @@ def strip_int_list(prefix, suffix, s) -> tuple:
     """
     if not s.startswith(prefix) or not s.endswith(suffix):
         raise ValueError()
-    if len(s)==len(prefix)+len(suffix):   # filename is exactly prefix + suffix
+    if len(s) == len(prefix) + len(suffix):   # filename is exactly prefix + suffix
         return tuple()
     if not prefix.endswith('-'):
         prefix += '-'
@@ -212,18 +222,19 @@ def strip_int_list(prefix, suffix, s) -> tuple:
     values = [int(x) for x in s.split('-')]
     return tuple(values)
 
-def log_file_key_factory(prefix:str, suffix:str):
+
+def log_file_key_factory(prefix: str, suffix: str):
     """
     strips off the prefix and suffix, and treats the remainder as a tuple of hyphen-delimited integers.
     >>> log_file_key_factory('abc', '.def')('abc-1-2-3.def')
     (1, 2, 3)
     """
-    def key(s:str):
+    def key(s: str):
         return strip_int_list(prefix, suffix, s)
     return key
 
 
-def log_file_filter_factory(prefix:str, ext:str) -> callable(bool):
+def log_file_filter_factory(prefix: str, ext: str) -> callable(bool):
     """
     Filters files not matching the given prefix and extension
     >>> log_file_filter_factory('abc','def')('abc.def')
@@ -241,9 +252,8 @@ def log_file_filter_factory(prefix:str, ext:str) -> callable(bool):
     """
     if not ext.startswith('.'):
         ext = '.' + ext
-    def filter(file:str):
-        return file.startswith(prefix) and file.endswith(ext) and len(ext)+len(prefix)<=len(file)
+
+    def filter(file: str):
+        return file.startswith(prefix) and file.endswith(ext) and len(ext) + len(prefix) <= len(file)
 
     return filter
-
-

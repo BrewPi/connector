@@ -5,7 +5,8 @@ Eventually this will simply convert from one log format to another using provide
 the json log format as input and the influxdb as output.
 """
 
-brewpi_test_influxdb_config = ('sandbox.influxdb.org', 9061, 'brewpi', 'fermentor', 'brewpi_test')
+brewpi_test_influxdb_config = (
+    'sandbox.influxdb.org', 9061, 'brewpi', 'fermentor', 'brewpi_test')
 
 import simplejson as json
 from datalog.beerlog_json import brewpi_log_rows, BeerlogJsonRepo
@@ -48,8 +49,9 @@ def chunker(iterable, size):
         yield item
         item = list(itertools.islice(it, size))
 
+
 def main():
-    if (len(sys.argv))>0:
+    if (len(sys.argv)) > 0:
         dst = InfluxDBTimeSeriesRepo(*brewpi_test_influxdb_config)
         dir = fsopendir(abspath(sys.argv[1]))
         src = BeerlogJsonRepo(dir)
@@ -59,14 +61,13 @@ def main():
             src_ts = src.fetch(name)
             dst_ts = dst.fetch(name)
 
-            for i, row in enumerate(chunker(src_ts.rows(),500)):
+            for i, row in enumerate(chunker(src_ts.rows(), 500)):
                 dst_ts.append_bulk(row)
-                if (i>10):
+                if (i > 10):
                     break
 
-            print('converting %s complete. Inserted %d rows into series %s. ' % (name, i, dst_ts.name))
+            print('converting %s complete. Inserted %d rows into series %s. ' %
+                  (name, i, dst_ts.name))
 
 if __name__ == '__main__':
     main()
-
-

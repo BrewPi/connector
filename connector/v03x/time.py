@@ -20,6 +20,7 @@ class ValueProfileInterpolation:
 
 
 class TimeValuePoint(CommonEqualityMixin):
+
     def __init__(self, time=0, value=0):
         self.time = time
         self.value = value
@@ -57,8 +58,7 @@ class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
         self.steps = []
 
     def __str__(self):
-        return super().__str__()+":"+str(self.__dict__)
-
+        return super().__str__() + ":" + str(self.__dict__)
 
     @classmethod
     def decode_definition(cls, data_block, controller):
@@ -78,22 +78,23 @@ class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
         self.current_time_offset = UnsignedShortDecoder().decode(buf[1:3])
         steps = []
         for i in range(3, len(buf), 4):
-            steps.append(TimeValuePoint().decode(buf[i:i+4]))
+            steps.append(TimeValuePoint().decode(buf[i:i + 4]))
         self.steps = steps
 
     def encode(self):
         buf = bytearray(self.encoded_len())
-        buf[0] = (self.current_step << 4) | (0 if not self.running else 4) | (self.interpolation & 3)
+        buf[0] = (self.current_step << 4) | (
+            0 if not self.running else 4) | (self.interpolation & 3)
         buf[1:3] = ShortEncoder().encode(self.current_time_offset)
-        self.steps.sort(key = TimeValuePoint.sort_by_time())
+        self.steps.sort(key=TimeValuePoint.sort_by_time())
         i = 3
         for s in self.steps:
-            buf[i:i+4] = s.encode()
-            i+=4
+            buf[i:i + 4] = s.encode()
+            i += 4
         return buf
 
     def encoded_len(self):
-        return 1 + 2 + len(self.steps)*4
+        return 1 + 2 + len(self.steps) * 4
 
 
 class ValueProfile(ReadWriteUserObject):
@@ -106,9 +107,3 @@ class ValueProfile(ReadWriteUserObject):
     @classmethod
     def decode_definition(cls, data_block: bytes, controller, *args, **kwargs):
         return ValueProfileState.decode_definition(data_block, controller)
-
-
-
-
-
-

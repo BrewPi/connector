@@ -49,6 +49,7 @@ class MessageFormat:
 
 
 class JSONFormat(MessageFormat):
+
     def produce(self, item, writer):
         out = json.dumps(item)
         writer.write(tobytes(out))
@@ -61,6 +62,7 @@ class JSONFormat(MessageFormat):
 
 
 class VersionFormat(MessageFormat):
+
     def scan(self, reader):
         line = reader.readline()
         return VersionParser(line)
@@ -70,6 +72,7 @@ class VersionFormat(MessageFormat):
 
 
 class LCDDisplayFormat(MessageFormat):
+
     def produce(self, item, writer):
         pass
 
@@ -78,6 +81,7 @@ class LCDDisplayFormat(MessageFormat):
 
 
 class LogMessageFormat(MessageFormat):
+
     def produce(self, item, writer):
         pass
 
@@ -119,6 +123,7 @@ def defs_as_dict(*defs):
 
 
 class MessageRequest(Request):
+
     def __init__(self, defn: RequestDef, value=None):
         self.defn = defn
         self.value = value
@@ -140,6 +145,7 @@ class MessageRequest(Request):
 
 
 class MessageResponse(Response):
+
     def __init__(self, defn):
         self.defn = defn
         self._value = None
@@ -161,7 +167,8 @@ class ControllerProtocolV023(BaseAsyncProtocolHandler):
     JSONFormat.instance = JSONFormat()
 
     requests = defs_as_dict(
-        request_def(b'A', "sound alarm", None, None),  # todo - should alarm have a response?
+        # todo - should alarm have a response?
+        request_def(b'A', "sound alarm", None, None),
         request_def(b'a', "silence alarm", None, None),
         request_def(b'c', "fetch constants", None, b'C'),
         request_def(b'd', "define devices", JSONFormat.instance, b'D'),
@@ -212,7 +219,8 @@ class ControllerProtocolV023(BaseAsyncProtocolHandler):
         r = MessageRequest(request_defn, value)
         future = self.async_request(r)
         if request_defn.responses is None:
-            # for commands that have no response, set the result value as none immediately
+            # for commands that have no response, set the result value as none
+            # immediately
             self._set_future_response(future, None)
         return future
 

@@ -7,18 +7,20 @@ from datetime import datetime
 from datalog.beerlog import TimeSeriesRepo, TimeSeries, select_columns
 from datalog.time import uts_datetime_to_millis
 
+
 class InfluxDBTimeSeriesRepo:
     pass
 
+
 class InfluxDBTimeSeries(TimeSeries):
 
-    def __init__(self, repo:InfluxDBTimeSeriesRepo, name:str, cols:list):
+    def __init__(self, repo: InfluxDBTimeSeriesRepo, name: str, cols: list):
         """
         Creates a local representation for a time series.
         :param repo:    the time series repo this is part of
         :param name:    the name of this series. Unique in the database.
         :param cols:    a list of column names for points in this series
-        
+
         >>> ts = InfluxDBTimeSeries('db', 'abc', ['time', 'c1', 'c2'])
         >>> ts.repo
         'db'
@@ -34,7 +36,7 @@ class InfluxDBTimeSeries(TimeSeries):
         ...
         ValueError: first column must be 'time'
         """
-        if not cols or cols[0]!='time':
+        if not cols or cols[0] != 'time':
             raise ValueError("first column must be 'time'")
         self.repo = repo
         self.name = name
@@ -55,11 +57,11 @@ class InfluxDBTimeSeries(TimeSeries):
             yield row
 
     def rows(self):
-        qr = self._query("select %(select_cols)s from %(name)s where time < now()+24h order asc")
+        qr = self._query(
+            "select %(select_cols)s from %(name)s where time < now()+24h order asc")
         yield from self._query_to_rows(qr[0])
 
-
-    def _create_bulk_request(self, bulkdata:list)->dict:
+    def _create_bulk_request(self, bulkdata: list)->dict:
         """ Converts a list of rows into a json request containing multiple datapoints.
         >>> d = InfluxDBTimeSeries(None,"abc", ['time','col1','col2']). \
             _create_bulk_request([ [datetime(1970,1,2,0,0,0), 1, 2] ])
@@ -84,10 +86,10 @@ class InfluxDBTimeSeries(TimeSeries):
         values.extend(data[1:])
         return values
 
-    def append(self, data:list):
+    def append(self, data: list):
         self.append_bulk([data])
 
-    def append_bulk(self, bulkdata:list):
+    def append_bulk(self, bulkdata: list):
         bulk_request = self._create_bulk_request(bulkdata)
         self.repo.insert(bulk_request)
 
@@ -117,7 +119,6 @@ class InfluxDBTimeSeries(TimeSeries):
     def _datapoints(self, json):
         return json['points']
 
-
     def _append_datapoint(self, request, datapoint):
         """ appends a new datapoint to the request.
 
@@ -140,7 +141,6 @@ class InfluxDBTimeSeries(TimeSeries):
     def _query(self, q):
         qy = self._prepare_query(q)
         return self.repo.query(qy)
-
 
 
 class InfluxDBTimeSeriesRepo(TimeSeriesRepo):
@@ -179,8 +179,7 @@ class InfluxDBTimeSeriesRepo(TimeSeriesRepo):
         self.db.delete_points(name)
 
 
-
-def datapoint_to_row(datapoint:list):
+def datapoint_to_row(datapoint: list):
     """  Converts a datapoint retrieved from the database to a row, as expected by TimeSeries callers.
     >>> datapoint_to_row([86400000, 'abc', 'def'])
     [datetime.datetime(1970, 1, 2, 0, 0), 'abc', 'def']
@@ -189,7 +188,7 @@ def datapoint_to_row(datapoint:list):
     return datapoint
 
 
-def sanitize(name:str):
+def sanitize(name: str):
     """
     >>> sanitize('abc')
     'abc'
@@ -214,6 +213,4 @@ def time_of(datapoint):
     >>> time_of([86400000])
     datetime.datetime(1970, 1, 2, 0, 0)
     """
-    return datetime.utcfromtimestamp(datapoint[0]/1000)
-
-
+    return datetime.utcfromtimestamp(datapoint[0] / 1000)

@@ -25,7 +25,7 @@ class PersistentValue(PersistentValueBase, ReadWriteUserObject):
         """ Allows a partial update of the value via a masked write. Wherever the mask bit has is set, the corresponding
             bit from value is written.
         """
-        return self.controller.write_masked_value(self, (value,mask))
+        return self.controller.write_masked_value(self, (value, mask))
 
 
 class PersistentShortValue(PersistentValue):
@@ -64,7 +64,7 @@ class IndirectValue(ReadWriteUserObject):
     type_id = 0x0D
 
     @classmethod
-    def encode_definition(cls, value:ControllerObject):
+    def encode_definition(cls, value: ControllerObject):
         return encode_id(value.id_chain)
 
     @classmethod
@@ -84,7 +84,8 @@ class IndirectValue(ReadWriteUserObject):
 
 class BuiltInObjectTypes:
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
-    # that are pre-instantiated may still need to be referred to by type. Will tackle this when needed.
+    # that are pre-instantiated may still need to be referred to by type. Will
+    # tackle this when needed.
 
     @classmethod
     def as_id(cls, obj: InstantiableObject):
@@ -100,6 +101,7 @@ class BuiltInObjectTypes:
 
 
 class MixinController(BaseController):
+
     def __init__(self, connector, objectTypes=BuiltInObjectTypes):
         super().__init__(connector, objectTypes)
 
@@ -122,5 +124,6 @@ class CrossCompileController(MixinController):
 
 
 class ArduinoController(MixinController):
+
     def __init__(self, connector):
         super().__init__(connector)
