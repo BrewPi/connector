@@ -6,3 +6,4 @@ pyhamcrest
 mockito-without-hardcoded-distribute-version
 nose
 configobj
+val

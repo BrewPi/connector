@@ -1,10 +1,12 @@
 from hamcrest import assert_that, greater_than_or_equal_to, is_, calling, raises, equal_to
+from nose.plugins.attrib import attr
 from connector.v03x.integration_test.base_test import BaseControllerTestHelper, ObjectTestHelper
 from connector.v03x.objects import IndirectValue, PersistentValue
 from connector.v03x.time import CurrentTicks
 
 __author__ = 'mat'
 
+@attr(fixture='v03x')
 class IndirectValueTest(ObjectTestHelper):
     def test_can_read_readonly(self):
         holder = self.c.create_dynamic_container()

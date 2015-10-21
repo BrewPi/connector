@@ -1,6 +1,7 @@
 import os
 from hamcrest import assert_that, is_, equal_to, has_property, is_not
 import sys
+from nose.plugins.attrib import attr
 from test.config import config_filename, apply_module
 import unittest
 
@@ -14,6 +15,7 @@ value2 = None
 value3 = None
 value4 = None
 
+@attr(fixture='config')
 class ConfigTestCase(unittest.TestCase):
     def test_can_retrieve_config_file(self):
         file = config_filename(config_name)

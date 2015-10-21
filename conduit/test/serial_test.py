@@ -39,6 +39,8 @@ class ConnectorSerialTestCase(unittest.TestCase):
     def test_detect_port_not_given(self):
         assert_that(detect_port("auto"), is_(equal_to(arduino_port_detect)))
 
+    test_detect_port_not_given.os='windows'
+
     def test_factory_method_returns_callable(self):
         factory = serial_connector_factory(invalid_port, baud, timeout=1)
         assert callable(factory)

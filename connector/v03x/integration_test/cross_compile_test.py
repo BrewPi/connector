@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from nose.plugins.attrib import attr
 
 from connector.v03x.integration_test.base_test import GeneralControllerTests
 from connector.v03x.integration_test.control_loop_test import ControlLoopTest
@@ -19,7 +20,9 @@ cross_compile_exe = None
 apply_module(sys.modules[__name__], 3)
 
 
+# for now this is windows only - will add the cross compile executable to the build so we can test with CI
 @unittest.skipUnless(cross_compile_exe, "cross-compile exe not defined")
+@attr(os='windows')
 class BaseCrossCompileTestCase:
     """ Uses the cross-compiled "arduino" code to test the main functionality of the v03x connector. """
     def __init__(self, name):

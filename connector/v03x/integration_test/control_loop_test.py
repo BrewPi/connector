@@ -1,12 +1,13 @@
 from time import sleep
 from hamcrest import assert_that, is_, not_none, equal_to, is_not, calling, raises, has_length, all_of, greater_than, \
     less_than
+from nose.plugins.attrib import attr
 from connector.v03x.controller import DynamicContainer, ControllerLoopState, FailedOperationError
 from connector.v03x.integration_test.base_test import BaseControllerTestHelper
 
 __author__ = 'mat'
 
-
+@attr(fixture='v03x')
 class ControlLoopTest(BaseControllerTestHelper):
 
     def setUp(self):

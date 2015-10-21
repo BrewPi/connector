@@ -723,7 +723,7 @@ class DynamicContainer(EmptyDefinition, UserObject, OpenContainerTraits, Contain
 class ControllerLoopState(CommonEqualityMixin):
     def __init__(Self, enabled=None, log_period=None, period=None):
         if log_period is not None and (log_period<0 or log_period>7):
-            raise ValueError("invalid log period "+log_period)
+            raise ValueError("invalid log period "+str(log_period))
         if period is not None and (period<0 or period>65535):
             raise ValueError("invalid period "+period)
         Self._enabled = enabled

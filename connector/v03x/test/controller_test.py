@@ -115,7 +115,7 @@ class ControllerLoopTest(unittest.TestCase):
 
     def test_encode_decode(self):
         sut = ControllerLoop(None, None, 1)
-        value = ControllerLoopState(True, 10, 5)
+        value = ControllerLoopState(True, 7, 5)
         buf, mask = sut.encode_masked(value)
         buf2, mask2 = value.encode_mask(bytearray(ControllerLoopTest.encoded_len), bytearray(ControllerLoopTest.encoded_len))
         assert_that(buf, is_(equal_to(buf2)))
