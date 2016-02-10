@@ -1,8 +1,6 @@
 language: python
-python:
-- '3.4'
-install: pip install -r requirements.txt -r requirements-test.txt
-script: "./test.sh"
+install: pip install tox==2.3.1
+script: tox
 notifications:
   slack:
     secure: n57a2wBCpnD1C0DCTWW20BCMsDV24ORkdyn4n3NoClMUi2ZxqkWABNr3rWCpURyEhGfNKtiPAKu6ShBn3JO00lO0NbR0z524JisP0fvbO7LKNTh/WmnvpHXpXjqbhmaJ0KiXPNk8oHkE6SRbIooH60mzMhKF8BNzCqVrCyUOsh8=
