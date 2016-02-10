@@ -1,0 +1,3 @@
+configobj
+mockito-without-hardcoded-distribute-version
+nose
