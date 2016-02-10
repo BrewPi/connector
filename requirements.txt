@@ -3,7 +3,4 @@ pyserial
 influxdb
 fs
 pyhamcrest
-mockito-without-hardcoded-distribute-version
-nose
-configobj
 val
