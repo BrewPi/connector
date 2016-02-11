@@ -1,6 +1,6 @@
-simplejson
-pyserial
-influxdb
-fs
-pyhamcrest
-val
+PyHamcrest==1.8.5
+fs==0.5.4
+influxdb==2.12.0
+pyserial==3.0.1
+simplejson==3.8.1
+val==0.6

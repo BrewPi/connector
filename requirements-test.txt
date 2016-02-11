@@ -1,3 +1,3 @@
-configobj
-mockito-without-hardcoded-distribute-version
-nose
+configobj==5.0.6
+mockito-without-hardcoded-distribute-version==0.5.4
+nose==1.3.7
