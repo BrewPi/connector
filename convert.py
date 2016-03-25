@@ -1,6 +1,6 @@
 __author__ = 'mat'
 
-import datalog.convert as convert
+import brewpi.datalog.convert as convert
 
 
 def main():
