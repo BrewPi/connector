@@ -5,7 +5,7 @@ from hamcrest import assert_that, equal_to, is_, not_none
 
 from brewpi.protocol.v02x import ControllerProtocolV023
 from controlbox.conduit.base import DefaultConduit
-from controlbox.protocol.test.controlbox_test import RWCacheBuffer
+from controlbox.protocol.io import RWCacheBuffer
 
 
 def argument_capture_callback(l):
