@@ -1,4 +1,5 @@
 PyHamcrest==1.8.5
+coverage==4.0.3
 configobj==5.0.6
 val==0.6
 mockito-without-hardcoded-distribute-version==0.5.4
