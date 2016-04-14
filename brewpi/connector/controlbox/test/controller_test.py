@@ -4,7 +4,7 @@ from hamcrest import assert_that, is_, equal_to, has_length
 
 from controlbox.controller import fetch_dict, ForwardingDecoder, ValueDecoder, ValueEncoder, ForwardingEncoder, \
     ControllerLoop, ControllerLoopState, ControllerLoopContainer, SystemProfile, \
-    DynamicContainer, BaseController, RootContainer, ValueObject, LongEncoder
+    DynamicContainer, BaseControlbox, RootContainer, ValueObject, LongEncoder
 
 __author__ = 'mat'
 
@@ -165,7 +165,7 @@ class BaseControllerAsyncLogTest(unittest.TestCase):
 
     def setUp(self):
         """ create a simple object hierarchy. proxy objects only - there is connection to a real external controller. """
-        sut = BaseController(None, None)
+        sut = BaseControlbox(None, None)
         sut.log_events += self.log_capture
         p = SystemProfile(sut, 1)
         root = RootContainer(p)

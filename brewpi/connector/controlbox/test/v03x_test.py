@@ -1,8 +1,6 @@
 from hamcrest import assert_that, equal_to, is_
 
-from controlbox.controller import Controller, Container, RootContainer, SystemProfile
-
-__author__ = 'mat'
+from controlbox.controller import Controlbox, Container, RootContainer, SystemProfile
 
 import unittest
 
@@ -12,7 +10,7 @@ class ControllerTest(unittest.TestCase):
     """
 
     def test_containers_equal(self):
-        c = Controller()
+        c = Controlbox()
         p = SystemProfile(c, 1)
         r = RootContainer(p)
         c1 = Container(c, r, 0)

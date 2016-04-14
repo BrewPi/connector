@@ -1,7 +1,5 @@
+
 import simplejson as json
-
-__author__ = 'mat'
-
 
 class VersionParser:
     """ Parses and stores the version and other compile-time details reported by the Arduino """

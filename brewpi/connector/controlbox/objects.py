@@ -1,5 +1,6 @@
 from brewpi.connector.controlbox.system_id import SystemID
 from brewpi.connector.controlbox.time import CurrentTicks, ValueProfile
+from controlbox.classes import ElapsedTime
 from controlbox.controller import *
 
 
@@ -7,14 +8,14 @@ from controlbox.controller import *
 from controlbox.protocol.controlbox import encode_id, decode_id
 
 
-class BrewpiController(BaseController):
+class BrewpiController(BaseControlbox):
     def system_id(self) -> SystemID:
         return SystemID(self, self._sysroot, 0)
 
-    def system_time(self) -> SystemTime:
+    def system_time(self) -> ElapsedTime:
         # todo - would be cleaner if we used cached instance rather than
         # creating a new instance each time
-        return SystemTime(self, self._sysroot, 1)
+        return ElapsedTime(self, self._sysroot, 1)
 
 
 class PersistentValueBase(EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, ForwardingDecoder):
@@ -74,7 +75,7 @@ class IndirectValue(ReadWriteUserObject):
     type_id = 0x0D
 
     @classmethod
-    def encode_definition(cls, value: ControllerObject):
+    def encode_definition(cls, value: ControlboxObject):
         return encode_id(value.id_chain)
 
     @classmethod

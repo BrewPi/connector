@@ -150,7 +150,7 @@ class BaseControllerTestHelper(unittest.TestCase):
         """ create a profile and activate it. Verifies that it is active. """
         profile = self.c.create_profile()
         profile.activate()
-        assert_that(profile.is_active, is_(True))
+        assert_that(profile.active, is_(True))
         return profile
 
     @property
@@ -274,7 +274,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         o1a = self.create_object()
         o2a = self.create_object()
         p2 = self.c.create_profile()
-        assert_that(p1.is_active, is_(True),
+        assert_that(p1.active, is_(True),
                     "expected profile to still be active")
         assert_that(calling(self.create_object), (raises(
             FailedOperationError)), "profile should still be closed")
@@ -285,7 +285,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         # second object in this profile
         assert_that(o2.id_chain, is_(equal_to((first_slot + 1,))))
         p1.delete()
-        assert_that(p2.is_active, is_(True),
+        assert_that(p2.active, is_(True),
                     "expected profile 2 to still be active")
         assert_that(calling(o2.read), is_not(
             raises(FailedOperationError)), "o2 should be readable")
@@ -326,7 +326,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         assert_that(tuple(c.list_objects(p1)), is_(equal_to(expected1)))
         # verify values can be read - initially in profile 2
         assert_that(
-            p2.is_active, "expected p2 to be the active profile after reset")
+            p2.active, "expected p2 to be the active profile after reset")
         assert_that(c.read_value(o20), is_(b2),
                     "value of persistent object in 2nd profile")
         p1.activate()
@@ -346,7 +346,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         # after reset (when the connection is broken) all existing objects should be revalidated
         # against the controller.
         self.assert_active_available(p.profile_id, [p.profile_id])
-        assert_that(p.is_active, is_(equal_to(True)),
+        assert_that(p.active, is_(equal_to(True)),
                     "profile should be active after reset")
         assert_that(calling(self.create_object), is_not(raises(FailedOperationError)),
                     "profile should be open after reset")

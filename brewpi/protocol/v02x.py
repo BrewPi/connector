@@ -1,3 +1,7 @@
+"""
+The original brewpi protocol (0.2.x) implemented with the class ControllerProtocolV023.
+"""
+
 import json
 from abc import abstractmethod
 from io import BufferedIOBase
