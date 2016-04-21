@@ -83,7 +83,7 @@ class ControlLoopTest(BaseControllerTestHelper):
     def test_logging_enabled(self):
         """ sets a loop to run with a period of 2 ms, running for ca. 1/10th of a second. The system time is stopped and
             the current time used to determine the expected number of iterations of the loop. """
-        loop = self.collect_logs(True, 1, 10)
+        self.collect_logs(True, 1, 10)
         sleep(0.1)
         # the exact number is 10 but fudge a bit for timing
         # inaccuracies/latency etc.
@@ -133,7 +133,8 @@ class ControlLoopTest(BaseControllerTestHelper):
             counter and stops posting logs. """
 
     def test_loop_persist(self):
-        """ validates that the enabled, loop period and logging flags are correctly persisted and reinstated on reset. """
+        """ validates that the enabled, loop period and logging flags are correctly
+        persisted and reinstated on reset. """
         o = self.c.create_object(DynamicContainer)
         root = self.c.root_container
         loop = root.configuration_for(o)

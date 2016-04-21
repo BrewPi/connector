@@ -10,7 +10,9 @@ from brewpi.connector.controlbox.integration_test.base_test import BaseControlle
 from brewpi.connector.controlbox.integration_test.indirect_value_test import IndirectValueTest
 from brewpi.connector.controlbox.integration_test.persistence_test import PersistentValueTest, PersistentChangeValueTest
 from brewpi.connector.controlbox.integration_test.time_test import SystemTimeTest, ValueProfileTest
+from brewpi.connector.controlbox.objects import ArduinoController
 from controlbox.config.config import configure_module
+from controlbox.connector.serialconn import SerialConnector
 
 arduino_serial_port = None
 arduino_baud = None

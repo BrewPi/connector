@@ -57,13 +57,15 @@ class TimeSeries:
     @abstractmethod
     def append(self, row: list):
         """
-        inserts data into the time series. the time must be greater than the previously inserted time or a ValueError is raised.
+        inserts data into the time series.
+        The time must be greater than the previously inserted time or a ValueError is raised.
         """
         raise NotImplementedError
 
     def append_bulk(self, rows: list):
         """
-        Appends multiple rows on one operation. Subclasses are encouraged to override this method to make the insert more efficient.
+        Appends multiple rows on one operation.
+        Subclasses are encouraged to override this method to make the insert more efficient.
         """
         for r in rows:
             self.append(r)
@@ -115,7 +117,8 @@ class CompositeTimeSeries(TimeSeries):
                     last_series = s
                 else:
                     raise ValueError('series %s: time is not ascending at row %d: '
-                                     'previous time was %s from TimeSeries %s, next time is row %d:%s from TimeSeries %s'
+                                     'previous time was %s from TimeSeries %s, '
+                                     'next time is row %d:%s from TimeSeries %s'
                                      % (self.name, row_count, last_time, last_series, i, t, s))
                 yield r
 

@@ -1,14 +1,9 @@
-from brewpi.datalog.influxdb.db import InfluxDBTimeSeriesRepo
-
-
 """
 Eventually this will simply convert from one log format to another using providers. For now, it's hard-coded to use
 the json log format as input and the influxdb as output.
 """
 
-brewpi_test_influxdb_config = (
-    'sandbox.influxdb.org', 9061, 'brewpi', 'fermentor', 'brewpi_test')
-
+from brewpi.datalog.influxdb.db import InfluxDBTimeSeriesRepo
 import itertools
 import sys
 from os.path import abspath
@@ -16,6 +11,9 @@ from os.path import abspath
 import simplejson as json
 from brewpi.datalog.beerlog_json import brewpi_log_rows, BeerlogJsonRepo
 from fs.opener import fsopendir
+
+brewpi_test_influxdb_config = (
+    'sandbox.influxdb.org', 9061, 'brewpi', 'fermentor', 'brewpi_test')
 
 
 def import_stream(db, name, stream):

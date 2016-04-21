@@ -1,7 +1,4 @@
 from fs.wrapfs.subfs import SubFS
-
-__author__ = 'mat'
-
 from datetime import datetime
 from brewpi.datalog.beerlog import TimeSeries, TimeSeriesRepo, CompositeTimeSeries, select_columns, ts_columns
 import simplejson as json
@@ -27,9 +24,7 @@ class BeerlogJsonRepo(TimeSeriesRepo):
 
     def names(self) -> list:
         """ the names are the subdirectories under the repo directory """
-        #names = [f for f in os.listdir(self.dir) if os.path.isdir(os.path.join(self.dir, f)) and self.is_valid_name(f)]
-        names = [f for f in self.dir.listdir(
-            '/', dirs_only=True) if self.is_valid_name(f)]
+        names = [f for f in self.dir.listdir('/', dirs_only=True) if self.is_valid_name(f)]
         return names
 
     def create(self, name):
@@ -69,7 +64,6 @@ class BeerlogJson(TimeSeries):
             return '%s on file %s' % (self.__class__, f)
 
     def rows(self):
-        i = 0
         try:
             with self.file_callable() as f:
                 data = json.load(f)
@@ -191,7 +185,8 @@ def sort_log_files(files: list, name: str, ext: str):
     :param name:    the name of the log (common prefix for all files)
     :param ext:     the extension of the files
     :return: files (sorted)
-    >>> sort_log_files(['a-2012-01-2.json', 'a-2012-01-1.json', 'a-2012-01-2-10.json', 'a-2012-01-2-1.json', 'a-2012-01-2-2.json'], 'a', '.json')
+    >>> sort_log_files(['a-2012-01-2.json', 'a-2012-01-1.json', 'a-2012-01-2-10.json', 'a-2012-01-2-1.json',\
+        'a-2012-01-2-2.json'], 'a', '.json')
     ['a-2012-01-1.json', 'a-2012-01-2.json', 'a-2012-01-2-1.json', 'a-2012-01-2-2.json', 'a-2012-01-2-10.json']
     """
     files.sort(key=log_file_key_factory(name, ext))

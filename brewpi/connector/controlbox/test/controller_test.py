@@ -5,9 +5,6 @@ from hamcrest import assert_that, is_, equal_to, has_length
 from controlbox.controller import fetch_dict, ForwardingDecoder, ValueDecoder, ValueEncoder, ForwardingEncoder, \
     ControllerLoop, ControllerLoopState, ControllerLoopContainer, SystemProfile, \
     DynamicContainer, BaseControlbox, RootContainer, ValueObject, LongEncoder
-
-__author__ = 'mat'
-
 import unittest
 
 
@@ -164,7 +161,8 @@ class ControllerLoopContainerTest(unittest.TestCase):
 class BaseControllerAsyncLogTest(unittest.TestCase):
 
     def setUp(self):
-        """ create a simple object hierarchy. proxy objects only - there is connection to a real external controller. """
+        """ create a simple object hierarchy. proxy objects only
+        - there is connection to a real external controller. """
         sut = BaseControlbox(None, None)
         sut.log_events += self.log_capture
         p = SystemProfile(sut, 1)
@@ -229,17 +227,15 @@ class BaseControllerAsyncLogTest(unittest.TestCase):
         v2._update_value.assert_called_with(2345)
 
     def test_async_log_unrecognized_objects_ignored(self):
-        """ The id chain referenced is to a non-existent object. Since the logs are processed asynchronously on another thread,
+        """ The id chain referenced is to a non-existent object.
+            Since the logs are processed asynchronously on another thread,
             they can be retrieved potentially after the object has been deleted. (Race-condition.)"""
         sut = self.sut
-        v = self.v
-        sut.handle_async_log_values(
-            (LongEncoder().encode(123456), [1], [([3], b'\x10\x20')]))
+        sut.handle_async_log_values((LongEncoder().encode(123456), [1], [([3], b'\x10\x20')]))
 
     def test_async_log_non_value_object(self):
-        """ The id chain referenced is to a non-existent object. Since the logs are processed asynchronously on another thread,
+        """ The id chain referenced is to a non-existent object.
+            Since the logs are processed asynchronously on another thread,
             they can be retrieved potentially after the object has been deleted. (Race-condition.)"""
         sut = self.sut
-        v = self.v
-        sut.handle_async_log_values(
-            (LongEncoder().encode(123456), [], [([1], b'\x10\x20')]))
+        sut.handle_async_log_values((LongEncoder().encode(123456), [], [([1], b'\x10\x20')]))

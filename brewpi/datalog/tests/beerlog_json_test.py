@@ -1,22 +1,18 @@
 import simplejson
+from hamcrest import assert_that, equal_to, calling, raises, is_
 
 from brewpi.datalog.beerlog import v021_columns, v010_columns
 
-__author__ = 'mat'
-
 import unittest
 from datetime import datetime, timedelta
-from hamcrest import *
 from brewpi.datalog.beerlog_json import sort_and_filter_log_files, parse_datetime, BeerlogJson, BeerlogJsonRepo
 import io
 import fs.memoryfs
-
 
 single_log_entry = "{'c':[{'v':'Date(2013,10,18,15,41,31)'},null,null,null,null,{'v':20.7},null,null,{'v':'0'}]}"
 
 
 class JsonDecodeTestCase(unittest.TestCase):
-
     def test_regular_date(self):
         p = parse_datetime('Date(2013,11,18,15,41,31)')
         expected = datetime(2013, 12, 18, 15, 41, 31)
@@ -46,22 +42,21 @@ class JsonDecodeTestCase(unittest.TestCase):
 
 
 class LogFileListingTestCase(unittest.TestCase):
-
     def test_files_filtered_and_sorted(self):
         name = 'a'
         ext = '.b'
         files = [
             'a.txt',  # filtered out  - wrong extension
             'a-01-01.b',
-            'b.b',   # filtered out  - wrong prefix
+            'b.b',  # filtered out  - wrong prefix
             'a-01-02-10.b',
             'a-01-02.b',
             'a-01-02-1.b',
             'a-01-02-2.b',
-            'a',     # corner case - no extension
-            'a.',    # corner case - empty extension
-            '.b',    # corner case - no base name
-            'a.b'   # comes first in list
+            'a',  # corner case - no extension
+            'a.',  # corner case - empty extension
+            '.b',  # corner case - no base name
+            'a.b'  # comes first in list
         ]
         result = sort_and_filter_log_files(files, name, ext)
         assert_that(result, equal_to([
@@ -83,13 +78,14 @@ class BeerlogJsonTest(unittest.TestCase):
     pass
 
     def test_invalid_json_prints_file(self):
-        file = lambda: io.StringIO('{abc')     # broken json
+        def file(): io.StringIO('{abc')  # broken json
+
         assert_that(calling(rows_for_log).with_args(file),
                     raises(ImportError, pattern='error decoding ".*"$'))
 
 
 t = datetime.now()
-t -= timedelta(microseconds=t.microsecond)          # second precision
+t -= timedelta(microseconds=t.microsecond)  # second precision
 # old format with just 5 columns
 d1_old = [t, 20, 10, "beer me", 5, 1, None]
 d1_old_row = [t, 20, 10, "beer me", 5, 1, None,
@@ -117,7 +113,7 @@ def dataseries_from_row(row):
     values = [tovalue(json_date_str(row[0]))]
     for r in row[1:]:
         values.append(tovalue(r))
-    result = {"c":  values}
+    result = {"c": values}
     return result
 
 
@@ -131,7 +127,6 @@ def build_json_file(colnames, data):
 
 
 class BeerlogJsonRepoTest(unittest.TestCase):
-
     def test_enumerate_directories_as_series_names(self):
         root = fs.memoryfs.MemoryFS()
         # not really needed just be sure we can work with subpaths
@@ -151,8 +146,7 @@ class BeerlogJsonRepoTest(unittest.TestCase):
         root = fs.memoryfs.MemoryFS()
         # not really needed just be sure we can work with subpaths
         brew = root.makeopendir("brew")
-        file1 = brew.setcontents(
-            "brew-01.json", build_json_file(v021_columns, [d1]))
+        brew.setcontents("brew-01.json", build_json_file(v021_columns, [d1]))
         repo = BeerlogJsonRepo(root)
         ts = repo.fetch("brew")
 
@@ -168,8 +162,7 @@ class BeerlogJsonRepoTest(unittest.TestCase):
         root = fs.memoryfs.MemoryFS()
         # not really needed just be sure we can work with subpaths
         brew = root.makeopendir("brew")
-        file1 = brew.setcontents(
-            "brew-01.json", build_json_file(v010_columns, [d1_old]))
+        brew.setcontents("brew-01.json", build_json_file(v010_columns, [d1_old]))
         repo = BeerlogJsonRepo(root)
         ts = repo.fetch("brew")
 

@@ -1,5 +1,3 @@
-__author__ = 'mat'
-
 import brewpi.datalog.convert as convert
 
 

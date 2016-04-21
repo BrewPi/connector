@@ -1,12 +1,9 @@
 from unittest.mock import Mock, call
 
-__author__ = 'mat'
-
+import unittest
 from brewpi.datalog.beerlog import ListTimeSeries, CompositeTimeSeries, TimeSeries
 from hamcrest import equal_to, is_, assert_that, calling, raises, none
 from datetime import datetime, timedelta
-
-import unittest
 
 
 class CompositeTimeSeriesTest(unittest.TestCase):
@@ -33,7 +30,8 @@ class CompositeTimeSeriesTest(unittest.TestCase):
         ])))
 
     def test_items_out_of_order_raises_ValueError(self):
-        """ given two series made into a composite, when the series produce non-increasing time then a ValueError is thrown"""
+        """ given two series made into a composite, when the series produce non-increasing time then
+        a ValueError is thrown"""
         t1 = datetime.now()
         t2 = t1 + timedelta(seconds=1)
         s1 = ListTimeSeries([[t2, 123]])

@@ -8,4 +8,3 @@ class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):
 
     def encoded_len(self):
         return 1
-

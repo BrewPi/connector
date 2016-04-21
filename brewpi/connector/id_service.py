@@ -26,4 +26,4 @@ def return_id(current_id):
             del shelf[key]
         else:
             logger.warn("Index %s not found in shelf" % key)
-            #raise ValueError("Index %s not found in shelf" % key)
+            # raise ValueError("Index %s not found in shelf" % key)

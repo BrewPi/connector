@@ -1,7 +1,5 @@
 from brewpi.datalog.beerlog import ts_columns
 
-__author__ = 'mat'
-
 import influxdb as influxdb
 from datetime import datetime
 from brewpi.datalog.beerlog import TimeSeriesRepo, TimeSeries, select_columns

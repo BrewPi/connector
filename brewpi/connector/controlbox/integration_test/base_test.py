@@ -230,7 +230,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
             try:
                 self.create_object()
                 count += 1
-            except FailedOperationError as e:
+            except FailedOperationError:
                 break
         return count
 
@@ -271,8 +271,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
         """
         p1 = self.setup_profile()
         first_slot = 1
-        o1a = self.create_object()
-        o2a = self.create_object()
+        self.create_object()
+        self.create_object()
         p2 = self.c.create_profile()
         assert_that(p1.active, is_(True),
                     "expected profile to still be active")
@@ -341,7 +341,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         """ adds objects to the open profile, and then causes a reset.
             on startup, verifies that the profile is still open, by creating more objects. """
         p = self.setup_profile()
-        #o0 = self.create_object()
+        # o0 = self.create_object()
         self.reset()
         # after reset (when the connection is broken) all existing objects should be revalidated
         # against the controller.
@@ -350,8 +350,8 @@ class GeneralControllerTests(BaseControllerTestHelper):
                     "profile should be active after reset")
         assert_that(calling(self.create_object), is_not(raises(FailedOperationError)),
                     "profile should be open after reset")
-        o2 = self.create_object()
-        #assert_that(o2.id_chain, is_(equal_to((o0.slot+2,))))
+        self.create_object()
+        # assert_that(o2.id_chain, is_(equal_to((o0.slot+2,))))
 
     def test_delete_active_profile_survives_reset(self):
         p = self.setup_profile()
@@ -383,10 +383,10 @@ class GeneralControllerTests(BaseControllerTestHelper):
     def test_deleted_slots_are_reused(self):
         """ adds objects to the open profile, and then causes a reset.
             on startup, verifies that the profile is still open, by creating more objects. """
-        p = self.setup_profile()
-        o0 = self.create_object()
+        self.setup_profile()
+        self.create_object()
         o1 = self.create_object()
-        o2 = self.create_object()
+        self.create_object()
         slot = o1.slot
         o1.delete()
         o4 = self.create_object()
@@ -398,13 +398,13 @@ class GeneralControllerTests(BaseControllerTestHelper):
         assert_that(tuple(self.c.list_objects(p)), has_length(0),
                     "expected no objects in new profile")
         o1 = self.c.create_object(PersistentValue, b'\x00')
-        o2 = self.c.create_object(PersistentValue, b'\x01')
+        self.c.create_object(PersistentValue, b'\x01')
         assert_that(tuple(self.c.list_objects(p)), has_length(2),
                     "expected 2 objects in profile")
         o1.delete()
         assert_that(tuple(self.c.list_objects(p)), has_length(1),
                     "expected 1 object in profile")
-        o3 = self.c.create_object(PersistentValue, b'\x02')
+        self.c.create_object(PersistentValue, b'\x02')
         assert_that(tuple(self.c.list_objects(p)), has_length(2),
                     "expected 2 objects in profile")
 
@@ -462,7 +462,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
     def test_create_object_in_closed_profile_fails(self):
         p = self.setup_profile()
         p2 = self.setup_profile()
-        p3 = self.setup_profile()
+        self.setup_profile()
         # todo - this used to throw a FailedOperationError with only 2 profiles (no p3 above)
         # but after switching to the ControlLoopContainer p2 remained as an open profile.
         # and the second create dynamic container create succeeded (since p2
@@ -486,11 +486,12 @@ class GeneralControllerTests(BaseControllerTestHelper):
         self.setup_profile()
         host = self.c.root_container
         current_ticks = self.c.create_current_ticks(host)
-        ticks = current_ticks.read()  # don't care what the value is just that we can read it
+        current_ticks.read()  # don't care what the value is just that we can read it
         self.reset()
-        # technically the current_ticks proxy should be re-evaluated after reset, and read from the controller (list objects)
+        # technically the current_ticks proxy should be re-evaluated after reset,
+        # and read from the controller (list objects)
         # but here, we rely on the id_chain still being valid
-        ticks = current_ticks.read()  # don't care what the value is just that we can read it
+        current_ticks.read()  # don't care what the value is just that we can read it
 
     def test_list_objects(self):
         c = self.c
@@ -512,7 +513,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
         self._persist_value(10)
 
     def _persist_value(self, size):
-        p = self.setup_profile()
+        self.setup_profile()
         b = bytes([x for x in range(10, 10 + size)])
         persist = self.c.create_object(PersistentValue, b)
         assert_that(persist.read(), is_(equal_to(b)),
@@ -530,10 +531,11 @@ class GeneralControllerTests(BaseControllerTestHelper):
         p = self.setup_profile()
         c = self.c
         slot = 1
-        o1 = c.create_object(CurrentTicks, None, None, slot)
-        o2 = c.create_object(CurrentTicks, None, None, slot)
-        o3 = c.create_object(CurrentTicks, None, None, slot)
-        o4 = c.create_object(CurrentTicks, None, None, slot + 1)
+        c.create_object(CurrentTicks, None, None, slot)
+        c.create_object(CurrentTicks, None, None, slot)
+        c.create_object(CurrentTicks, None, None, slot)
+        c.create_object(CurrentTicks, None, None, slot + 1)
+
         result = tuple(self.c.list_objects(p))
         assert_that(result, has_length(
             2), "expected two object definitions at slot 0 and slot 1")
@@ -543,7 +545,7 @@ class GeneralControllerTests(BaseControllerTestHelper):
 
     @unittest.skipUnless(stress_tests_enabled, "stress tests disabled")
     def test_many_persistent_values(self):
-        p = self.setup_profile()
+        self.setup_profile()
         [self.c.create_object(PersistentValue, bytes(240))
          for x in range(0, 4)]
         assert_that(calling(self.c.create_object).with_args(PersistentValue, bytes(240)), raises(FailedOperationError),

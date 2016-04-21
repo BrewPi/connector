@@ -232,7 +232,7 @@ class ControllerProtocolV023(BaseAsyncProtocolHandler):
         char = reader.read(1)
         defn = self.responses.get(char, None)
         if defn is None:
-            #log.error("Unrecognized command", char)
+            # log.error("Unrecognized command", char)
             return None
 
         r = MessageResponse(defn)

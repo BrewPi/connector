@@ -1,3 +1,4 @@
+import logging
 import unittest
 from unittest import TestCase
 from unittest.mock import Mock
@@ -7,15 +8,17 @@ from hamcrest import assert_that, equal_to, is_, is_not, is_in, not_
 from controlbox.conduit.base import Conduit
 from controlbox.support.events import EventSource
 
+logger = logging.getLogger(__name__)
+
 
 class ControllerConnectionManager:
     """
     Keeps track of the sources and optional associated conduit+protocol handler.
-    A source will not be opened by an enumerator while it's in the conduit manager (so source are tried once when connected and not again until reconnected.)
+    A source will not be opened by an enumerator while it's in the conduit manager
+    (so source are tried once when connected and not again until reconnected.)
     """
     connected = "connected"
     disconnected = "disconnected"
-
 
     def __init__(self, sniffer):
         """
@@ -54,6 +57,22 @@ class ControllerConnectionManager:
         return dict(self._connections)
 
 
+class SerialControllerEnumerator:
+    """
+    Enumerates local serial busses for connected controllers.
+
+    - scan known serial ports (using pyserial) to get a set of available serial ports
+     - difference this from previously scanned ports - determine any that have been disconnected
+     (so next time they are connected we retry.)
+
+    - from each port that is not already open (check with the conduit manager)
+     - attempt to open
+      - on success, pass the conduit and the source to the ConduitManager
+      - on fail, pass the source and a failed flag to the conduit manager
+
+    """
+
+
 class ControllerConnectionManagerTest(TestCase):
 
     def test_construction(self):
@@ -73,7 +92,7 @@ class ControllerConnectionManagerTest(TestCase):
         sut = ControllerConnectionManager(sniffer)
         sut.events += listener
         sut.connected("myconn")
-        assert_that(sut.connections, is_(equal_to({"myconn":None})))
+        assert_that(sut.connections, is_(equal_to({"myconn": None})))
         sniffer.assert_not_called()
         listener.assert_called_once_with(sut, ControllerConnectionManager.connected, "myconn", None, None)
 
@@ -124,32 +143,20 @@ class ControllerConnectionManagerTest(TestCase):
         listener.assert_called_once_with(sut, ControllerConnectionManager.disconnected, "myconn", conduit, protocol)
         assert_that("myconn", not_(is_in(sut.connections)))
 
-
-class SerialControllerEnumerator:
-    """
-    Enumerates local serial busses for connected controllers.
-
-    - scan known serial ports (using pyserial) to get a set of available serial ports
-     - difference this from previously scanned ports - determine any that have been disconnected (so next time they are connected we retry.)
-
-    - from each port that is not already open (check with the conduit manager)
-     - attempt to open
-      - on success, pass the conduit and the source to the ConduitManager
-      - on fail, pass the source and a failed flag to the conduit manager
-
-    """
+    def test_fail(self):
+        assert_that(True, is_(False))
 
 
 class WiFiControllerEnumerator:
     """
-        Enumerates wifi:
-        - zeroconf, bonjour, mDNS, TCP server?
-        - each device announces its presence
+    Enumerates wifi:
+    - zeroconf, bonjour, mDNS, TCP server?
+    - each device announces its presence
 
-        - "sniff" the conduit,
-        - if it's a controller, post a controller connected event - keep the conduit open along with the protocol handler
-        - connected controllers are maintained globally and are not sniffed again
-        -
+    - "sniff" the conduit,
+    - if it's a controller, post a controller connected event - keep the conduit open along with the protocol handler
+    - connected controllers are maintained globally and are not sniffed again
+    -
 
 
     - Unit testing

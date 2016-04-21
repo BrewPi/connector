@@ -1,10 +1,11 @@
 from brewpi.connector.controlbox.system_id import SystemID
 from brewpi.connector.controlbox.time import CurrentTicks, ValueProfile
 from controlbox.classes import ElapsedTime
-from controlbox.controller import *
-
 
 # Now comes the application-specific objects.
+from controlbox.controller import BaseControlbox, EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, \
+    ForwardingDecoder, BufferDecoder, ReadWriteUserObject, ShortEncoder, ShortDecoder, ControlboxObject, \
+    InstantiableObject, DynamicContainer, BufferEncoder
 from controlbox.protocol.controlbox import encode_id, decode_id
 
 
@@ -53,8 +54,8 @@ class BangBangController:
 
 
 class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
-    """ A persistent value in the controller. The value is persisted when it the amount it changes from the last persisted
-    value passes a certain threshold.
+    """ A persistent value in the controller. The value is persisted when it the amount it changes from the
+    last persisted value passes a certain threshold.
     Definition args: a tuple of (initial value:signed 16-bit, threshold: unsigned 16-bit). """
     type_id = 9
     shortEnc = ShortEncoder()
