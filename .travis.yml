@@ -2,7 +2,7 @@ language: python
 install:
  - pip install tox==2.3.1
  - pip install coveralls==1.1
- - git clone https://github.com/m-mcgowan/controlbox-connect-py@develop ../cbconnect-py
+ - git clone https://github.com/m-mcgowan/controlbox-connect-py -b develop --single-branch ../cbconnect-py
 
 script: tox
 
