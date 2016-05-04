@@ -7,7 +7,7 @@ from brewpi.protocol.factory import all_sniffers
 from brewpi.protocol.v02x import ControllerProtocolV023
 from controlbox.conduit.base import DefaultConduit
 from controlbox.connector.base import UnknownProtocolError
-from controlbox.protocol.controlbox import HexToBinaryInputStream, ControllerProtocolV030
+from controlbox.protocol.controlbox import HexToBinaryInputStream, ControlboxProtocolV1
 from controlbox.protocol.io import determine_line_protocol
 
 
@@ -34,9 +34,9 @@ class FactoryTestCase(unittest.TestCase):
         assert_that(p._conduit, is_(c))
 
     def test_create_v030(self):
-        c = build_conduit(b'["v":"0.3.0"]\n')
+        c = build_conduit(b'["v":"0.3.0","a":"myapp","ignored":"blah"]\n')
         p = determine_line_protocol(c, all_sniffers)
-        assert_that(p, is_(instance_of(ControllerProtocolV030)))
+        assert_that(p, is_(instance_of(ControlboxProtocolV1)))
         assert_that(p._conduit.input, is_(instance_of(HexToBinaryInputStream)))
 
 

@@ -1,10 +1,9 @@
 import operator
 
 from controlbox.controller import EmptyDefinition, ReadableObject, UserObject, LongDecoder, ShortDecoder, \
-    ShortEncoder, ObjectDefinition, CommonEqualityMixin, UnsignedShortDecoder,  \
+    ShortEncoder, ObjectDefinition, UnsignedShortDecoder,  \
     ReadWriteUserObject
-
-__author__ = 'mat'
+from controlbox.support.mixins import CommonEqualityMixin
 
 
 class CurrentTicks(EmptyDefinition, ReadableObject, UserObject, LongDecoder):

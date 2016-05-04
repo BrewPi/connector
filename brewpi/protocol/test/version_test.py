@@ -1,8 +1,6 @@
 import unittest
 
 from hamcrest import assert_that, calling, raises
-
-# noinspection PyPep8Naming
 from brewpi.protocol.version import VersionParser
 
 
