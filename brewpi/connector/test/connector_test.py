@@ -10,7 +10,7 @@ from controlbox.protocol.io import determine_line_protocol
 logger = logging.getLogger(__name__)
 
 
-def dump_device_info(connector, protocol:ControlboxProtocolV1):
+def dump_device_info(connector, protocol: ControlboxProtocolV1):
     if not hasattr(protocol, 'controller'):
         controller = protocol.controller = MixinController(connector)
         controller.initialize(True)
@@ -21,6 +21,7 @@ def dump_device_info(connector, protocol:ControlboxProtocolV1):
     endpoint = connector.endpoint
     str_id = ''.join('{:02x}'.format(x) for x in id)
     logger.info("device at '%s' id '%s' current time %s " % (endpoint, str_id, time))
+
 
 def monitor():
     """ logs the connected devices. A dummy protocol sniffer is used. """
@@ -42,8 +43,8 @@ def monitor():
                 logger.exception(e)
                 pass
 
-    discoveries = ( builder.build_serial_discovery(sniffer),
-                   builder.build_tcp_server_discovery(sniffer, "brewpi"),)
+    discoveries = (builder.build_serial_discovery(sniffer),
+                   builder.build_tcp_server_discovery(sniffer, "brewpi"))
     facade = builder(discoveries)
     try:
         while True:
