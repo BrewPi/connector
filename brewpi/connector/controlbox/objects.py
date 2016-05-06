@@ -10,8 +10,20 @@ from controlbox.protocol.controlbox import encode_id, decode_id
 
 
 class BrewpiController(BaseControlbox):
+
+    def initialize(self, load_profile=True):
+        super().initialize(load_profile)
+        id_obj = self.system_id()
+        current_id = id_obj.read()
+        # for managing the ID in the python layer for controllers that don't have their own
+        # guaranteed unique ID.  Not required for Particle devices.
+        # if int(current_id[0]) == 0xFF:
+        #     current_id = fetch_id()
+        #     id_obj.write(current_id)
+
+
     def system_id(self) -> SystemID:
-        return SystemID(self, self._sysroot, 0)
+        return SystemID(self, self._sysroot, 0, 12)
 
     def system_time(self) -> ElapsedTime:
         # todo - would be cleaner if we used cached instance rather than
