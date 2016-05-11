@@ -134,7 +134,7 @@ class InfluxDBTimeSeries(TimeSeries):
         >>> InfluxDBTimeSeries(None,'bar',['time', 'orange'])._prepare_query('foo %(select_cols)s %(name)s quux')
         'foo orange bar quux'
         """
-        return q % self.__dict__
+        return q % self.__dict__  # noqa: H501
 
     def _query(self, q):
         qy = self._prepare_query(q)

@@ -1,4 +1,5 @@
 import logging
+import os
 from time import sleep
 
 from brewpi.connector.controlbox.objects import MixinController
@@ -8,6 +9,9 @@ from controlbox.protocol.controlbox import ControlboxProtocolV1
 from controlbox.protocol.io import determine_line_protocol
 
 logger = logging.getLogger(__name__)
+
+
+cross_platform_executable = "/Users/mat1/dev/brewpi/firmware/platform/spark/target/cbox-gcc/cbox"
 
 
 def dump_device_info(connector, protocol: ControlboxProtocolV1):
@@ -43,8 +47,12 @@ def monitor():
                 logger.exception(e)
                 pass
 
-    discoveries = (builder.build_serial_discovery(sniffer),
-                   builder.build_tcp_server_discovery(sniffer, "brewpi"))
+    discoveries = (
+        builder.build_serial_discovery(sniffer),
+        builder.build_tcp_server_discovery(sniffer, "brewpi"),
+        builder.build_process_discovery(sniffer,
+                                        cross_platform_executable, "-i 112233445566778899AABBCC".split(" "),
+                                        os.path.dirname(cross_platform_executable)))
     facade = builder(discoveries)
     try:
         while True:

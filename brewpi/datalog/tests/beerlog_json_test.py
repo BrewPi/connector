@@ -78,7 +78,8 @@ class BeerlogJsonTest(unittest.TestCase):
     pass
 
     def test_invalid_json_prints_file(self):
-        def file(): io.StringIO('{abc')  # broken json
+        def file():
+            io.StringIO('{abc')  # broken json
 
         assert_that(calling(rows_for_log).with_args(file),
                     raises(ImportError, pattern='error decoding ".*"$'))
