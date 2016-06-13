@@ -17,7 +17,7 @@ from controlbox.connector.serialconn import SerialConnector
 arduino_serial_port = None
 arduino_baud = None
 
-configure_module(sys.modules[__name__], 2)
+configure_module(sys.modules[__name__])
 
 
 @unittest.skipUnless(arduino_serial_port, "arduino_serial not defined")

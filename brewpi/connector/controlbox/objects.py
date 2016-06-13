@@ -3,13 +3,13 @@ from brewpi.connector.controlbox.time import CurrentTicks, ValueProfile
 from controlbox.classes import ElapsedTime
 
 # Now comes the application-specific objects.
-from controlbox.controller import BaseControlbox, EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, \
+from controlbox.controller import TypedControlbox, EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, \
     ForwardingDecoder, BufferDecoder, ReadWriteUserObject, ShortEncoder, ShortDecoder, ControlboxObject, \
-    InstantiableObject, DynamicContainer, BufferEncoder
+    DynamicContainer, BufferEncoder, ObjectTypeMapper
 from controlbox.protocol.controlbox import encode_id, decode_id
 
 
-class BrewpiController(BaseControlbox):
+class BrewpiController(TypedControlbox):
 
     def initialize(self, load_profile=True):
         super().initialize(load_profile)
@@ -105,22 +105,14 @@ class IndirectValue(ReadWriteUserObject):
         return self.definition.encode(value)
 
 
-class BuiltInObjectTypes:
+class BuiltInObjectTypes(ObjectTypeMapper):
     # for now, we assume all object types are instantiable. This is not strictly always the case, e.g. system objects
     # that are pre-instantiated may still need to be referred to by type. Will
     # tackle this when needed.
 
-    @classmethod
-    def as_id(cls, obj: InstantiableObject):
-        return obj.type_id
-
-    @classmethod
-    def from_id(cls, type_id) -> InstantiableObject:
-        return BuiltInObjectTypes._from_id.get(type_id, None)
-
-    all_types = (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
-                 PersistChangeValue, IndirectValue)
-    _from_id = dict((x.type_id, x) for x in all_types)
+    def all_types(self):
+        return (CurrentTicks, DynamicContainer, PersistentValue, ValueProfile, LogicActuator, BangBangController,
+                PersistChangeValue, IndirectValue)
 
 
 class MixinController(BrewpiController):

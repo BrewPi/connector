@@ -10,7 +10,8 @@ class ControllerTest(unittest.TestCase):
     """
 
     def test_containers_equal(self):
-        c = Controlbox()
+        connector = {}
+        c = Controlbox(connector)
         p = SystemProfile(c, 1)
         r = RootContainer(p)
         c1 = Container(c, r, 0)

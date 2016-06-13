@@ -15,7 +15,7 @@ from controlbox.connector.processconn import ProcessConnector
 
 cross_compile_exe = None
 
-configure_module(sys.modules[__name__], 3)
+configure_module(sys.modules[__name__])
 
 
 # for now this is windows only - will add the cross compile executable to
