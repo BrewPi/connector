@@ -114,7 +114,7 @@ def monitor():
     """ logs the connected devices. A dummy protocol sniffer is used. """
     root = logging.getLogger()
     root.addHandler(logging.StreamHandler())
-    root.setLevel(logging.DEBUG)
+    root.setLevel(logging.INFO)
     builder = ControllerDiscoveryFacade
     logger.info("starting tester")
 
