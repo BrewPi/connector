@@ -6,6 +6,7 @@ from time import sleep
 from brewpi.connector.controlbox.objects import MixinController
 from brewpi.protocol.factory import all_sniffers
 from controlbox.config.config import configure_module
+from controlbox.connector.socketconn import TCPServerEndpoint
 from controlbox.connector_facade import ControllerDiscoveryFacade
 from controlbox.controller import Controlbox, LongDecoder, ShortDecoder
 from controlbox.events import ControlboxEvents, ConnectorCodec, ConnectorEventVisitor
@@ -134,7 +135,7 @@ def monitor():
 
     discoveries = [
         builder.build_serial_discovery(sniffer),
-        builder.build_tcp_server_discovery(sniffer, "brewpi")
+        builder.build_tcp_server_discovery(sniffer, "brewpi", (TCPServerEndpoint('localhost', '127.0.0.1', 8332),))
     ]
 
     if cross_platform_executable:
