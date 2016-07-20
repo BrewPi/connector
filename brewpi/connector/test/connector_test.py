@@ -14,7 +14,7 @@ from controlbox.protocol.controlbox import ControlboxProtocolV1
 from controlbox.protocol.io import determine_line_protocol
 
 from brewpi.connector.controlbox.objects import MixinController
-from brewpi.connector.test.codecs import (
+from brewpi.connector.codecs.time import (
     BlockBufferCodec, TypeMappingCodec, DictionaryMappingCodec,
     ScaledTimeCodec, BrewpiStateCodec, BrewpiConstructorCodec
 )
