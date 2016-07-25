@@ -3,8 +3,10 @@ This is where codecs about the testing scenario (a simple clock that ticks)
 lie.
 """
 
+from controlbox.controller import LongDecoder, ShortDecoder
 from controlbox.events import ConnectorCodec
 from controlbox.support.mixins import StringerMixin, CommonEqualityMixin
+
 
 class BlockBufferCodec(ConnectorCodec):
     def encode(self, type, value):
