@@ -117,8 +117,8 @@ class BuiltInObjectTypes(ObjectTypeMapper):
 
 class MixinController(BrewpiController):
 
-    def __init__(self, connector, objectTypes=BuiltInObjectTypes):
-        super().__init__(connector, objectTypes)
+    def __init__(self, connector, objectTypes=None):
+        super().__init__(connector, objectTypes or BuiltInObjectTypes())
 
     def create_current_ticks(self, container=None, slot=None) -> CurrentTicks:
         return self.create_object(CurrentTicks, None, container, slot)
