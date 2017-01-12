@@ -1,7 +1,8 @@
-from hamcrest import assert_that, is_, equal_to
 import unittest
 
-from brewpi.connector.controlbox.time import ValueProfileState, TimeValuePoint, ValueProfileInterpolation
+from hamcrest import assert_that, is_, equal_to
+
+from brewpi.controlbox import ValueProfileState, TimeValuePoint, ValueProfileInterpolation
 
 
 class ValueProfileStateTestCase(unittest.TestCase):

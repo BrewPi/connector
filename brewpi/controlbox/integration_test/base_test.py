@@ -2,14 +2,15 @@ import sys
 import unittest
 from abc import abstractmethod
 
-from hamcrest import assert_that, equal_to, is_, greater_than, less_than, calling, raises, is_not, all_of, any_of, \
-    has_length, empty
+from brewpi.connector.controlbox.time import CurrentTicks
+from hamcrest import all_of, any_of, assert_that, calling, empty, equal_to, greater_than, has_length, is_, is_not, \
+    less_than, raises
 
 from brewpi.connector import id_service
-from brewpi.connector.controlbox.objects import MixinController, PersistentValue
-from brewpi.connector.controlbox.time import CurrentTicks
+from brewpi.controlbox.objects import MixinController, PersistentValue
 from controlbox.config.config import configure_module
-from controlbox.controller import DynamicContainer, SystemProfile, RootContainer, FailedOperationError, Container
+from controlbox.stateful.controller import Container, DynamicContainer, FailedOperationError, RootContainer, \
+    SystemProfile
 
 configure_module(sys.modules[__name__])
 

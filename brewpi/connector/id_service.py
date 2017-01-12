@@ -1,3 +1,8 @@
+"""
+Allocates new integer IDs. The use case for this is
+controllers that don't have their own unique ID.
+"""
+
 from contextlib import closing
 import logging
 import shelve

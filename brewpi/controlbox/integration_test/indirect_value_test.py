@@ -1,9 +1,9 @@
+from brewpi.connector.controlbox.integration_test.base_test import ObjectTestHelper
+from brewpi.connector.controlbox.time import CurrentTicks
 from hamcrest import assert_that, greater_than_or_equal_to, is_, calling, raises, equal_to
 from nose.plugins.attrib import attr
 
-from brewpi.connector.controlbox.integration_test.base_test import ObjectTestHelper
-from brewpi.connector.controlbox.objects import IndirectValue, PersistentValue
-from brewpi.connector.controlbox.time import CurrentTicks
+from brewpi.controlbox.objects import IndirectValue, PersistentValue
 
 
 @attr(fixture='v03x')

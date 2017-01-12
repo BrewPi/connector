@@ -1,8 +1,7 @@
 import operator
 
-from controlbox.controller import EmptyDefinition, ReadableObject, UserObject, LongDecoder, ShortDecoder, \
-    ShortEncoder, ObjectDefinition, UnsignedShortDecoder,  \
-    ReadWriteUserObject
+from controlbox.stateful.controller import EmptyDefinition, LongDecoder, ObjectDefinition, ReadWriteUserObject, \
+    ReadableObject, ShortDecoder, ShortEncoder, UnsignedShortDecoder, UserObject
 from controlbox.support.mixins import CommonEqualityMixin
 
 

@@ -3,21 +3,19 @@
 import logging
 import os
 import sys
+
+from brewpi.connector.controlbox.codecs import BrewpiConstructorCodec, BrewpiStateCodec
 from time import sleep
 
+from brewpi.controlbox.objects import MixinController
+from brewpi.protocol.factory import all_sniffers
 from controlbox.config.config import configure_module
 from controlbox.connector.socketconn import TCPServerEndpoint
-from controlbox.connector_facade import ControllerDiscoveryFacade
-from controlbox.controller import Controlbox
-from controlbox.events import ControlboxEvents, ConnectorEventVisitor
+from controlbox.connector_discovery_facade import ControllerDiscoveryFacade
 from controlbox.protocol.controlbox import ControlboxProtocolV1
 from controlbox.protocol.io import determine_line_protocol
-
-from brewpi.connector.controlbox.objects import MixinController
-from brewpi.connector.codecs.time import (
-    BrewpiStateCodec, BrewpiConstructorCodec
-)
-from brewpi.protocol.factory import all_sniffers
+from controlbox.stateful.controller import Controlbox
+from controlbox.stateless.api import ControlboxApplicationAdapter, ControlboxEventVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +37,7 @@ def dump_device_info_typed_controller(connector, protocol: ControlboxProtocolV1)
     logger.info("device at '%s' id '%s' current time %s " % (endpoint, str_id, time))
 
 
-class BrewpiEvents(ConnectorEventVisitor):
+class BrewpiEvents(ControlboxEventVisitor):
     def __call__(self, event):
         logger.info(event)
 
@@ -47,7 +45,7 @@ class BrewpiEvents(ConnectorEventVisitor):
 def dump_device_info_events(connector, protocol: ControlboxProtocolV1):
     if not hasattr(protocol, 'controller'):
         controller = protocol.controller = Controlbox(connector)
-        events = controller.events = ControlboxEvents(controller, BrewpiConstructorCodec(), BrewpiStateCodec())
+        events = controller.events = ControlboxApplicationAdapter(controller, BrewpiConstructorCodec(), BrewpiStateCodec())
         events.listeners.add(BrewpiEvents())
     else:
         events = protocol.controller.events

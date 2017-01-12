@@ -1,7 +1,7 @@
+from brewpi.connector.controlbox.integration_test.base_test import ObjectTestHelper
 from hamcrest import assert_that, equal_to, is_
 
-from brewpi.connector.controlbox.integration_test.base_test import ObjectTestHelper
-from brewpi.connector.controlbox.objects import PersistChangeValue, PersistentValue, PersistentShortValue
+from brewpi.controlbox.objects import PersistChangeValue, PersistentValue, PersistentShortValue
 
 
 class PersistentChangeValueTest(ObjectTestHelper):

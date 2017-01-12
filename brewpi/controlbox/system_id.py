@@ -1,5 +1,4 @@
-
-from controlbox.controller import ReadWriteSystemObject, BufferDecoder, BufferEncoder
+from controlbox.stateful.controller import BufferDecoder, BufferEncoder, ReadWriteSystemObject
 
 
 class SystemID(ReadWriteSystemObject, BufferDecoder, BufferEncoder):

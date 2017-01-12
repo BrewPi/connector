@@ -1,8 +1,8 @@
+import unittest
+
 from hamcrest import assert_that, equal_to, is_
 
-from controlbox.controller import Controlbox, Container, RootContainer, SystemProfile
-
-import unittest
+from controlbox.stateful.controller import Container, Controlbox, RootContainer, SystemProfile
 
 
 class ControllerTest(unittest.TestCase):

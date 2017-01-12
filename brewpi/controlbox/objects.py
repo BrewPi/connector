@@ -1,15 +1,24 @@
-from brewpi.connector.controlbox.system_id import SystemID
-from brewpi.connector.controlbox.time import CurrentTicks, ValueProfile
-from controlbox.classes import ElapsedTime
+"""
+this is work in progress
+it defines the classes of objects that are found in the brewpi app.
+some of these may move down into the generic controlbox layer if they are useful and application-neutral.
 
-# Now comes the application-specific objects.
-from controlbox.controller import TypedControlbox, EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, \
-    ForwardingDecoder, BufferDecoder, ReadWriteUserObject, ShortEncoder, ShortDecoder, ControlboxObject, \
-    DynamicContainer, BufferEncoder, ObjectTypeMapper
-from controlbox.protocol.controlbox import encode_id, decode_id
+"""
+
+from brewpi.controlbox import CurrentTicks, ValueProfile
+from brewpi.controlbox import SystemID
+from controlbox.protocol.controlbox import decode_id, encode_id
+from controlbox.stateful.classes import ElapsedTime
+from controlbox.stateful.controller import BufferDecoder, BufferEncoder, ControlboxObject, DynamicContainer, \
+    EncoderDecoderDefinition, ForwardingDecoder, ForwardingEncoder, ObjectTypeMapper, ReadWriteUserObject, \
+    ReadWriteValue, ShortDecoder, ShortEncoder, TypedControlbox
 
 
 class BrewpiController(TypedControlbox):
+    """
+    A Controlbox controller that is pre-configured with the brewpi application model.
+    At present, this is simply the controller ID and current system time.
+    """
 
     def initialize(self, load_profile=True):
         super().initialize(load_profile)
@@ -25,7 +34,7 @@ class BrewpiController(TypedControlbox):
         return SystemID(self, self._sysroot, 0, 12)
 
     def system_time(self) -> ElapsedTime:
-        # todo - would be cleaner if we used cached instance rather than
+        # todo - would be cleaner if we used a cached instance rather than
         # creating a new instance each time
         return ElapsedTime(self, self._sysroot, 1)
 
@@ -116,6 +125,9 @@ class BuiltInObjectTypes(ObjectTypeMapper):
 
 
 class MixinController(BrewpiController):
+    """
+    Just a PoC for creating an application specific controller.
+    """
 
     def __init__(self, connector, objectTypes=None):
         super().__init__(connector, objectTypes or BuiltInObjectTypes())
