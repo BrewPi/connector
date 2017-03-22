@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from brewpi.controlbox import ConnectorTypes
+from brewpi.controlbox.codecs.codecs import ConnectorTypes
 from controlbox.stateless.codecs import DictionaryMappingCodec
 
 

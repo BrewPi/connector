@@ -4,18 +4,16 @@ import logging
 import os
 import sys
 
-from brewpi.connector.controlbox.codecs import BrewpiConstructorCodec, BrewpiStateCodec
 from time import sleep
 
 from brewpi.controlbox.objects import MixinController
-from brewpi.protocol.factory import all_sniffers
+from brewpi.protocol.sniffer import all_sniffers
 from controlbox.config.config import configure_module
 from controlbox.connector.socketconn import TCPServerEndpoint
-from controlbox.connector_discovery_facade import ControllerDiscoveryFacade
-from controlbox.protocol.controlbox import ControlboxProtocolV1
+from controlbox.connector_discovery_facade import ControllerDiscoveryFactory
+from controlbox.protocol.controlbox import ControlboxProtocolV1, Controlbox
 from controlbox.protocol.io import determine_line_protocol
-from controlbox.stateful.controller import Controlbox
-from controlbox.stateless.api import ControlboxApplicationAdapter, ControlboxEventVisitor
+from controlbox.stateless.api import ControlboxStateless, ControlboxEventVisitor
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +40,19 @@ class BrewpiEvents(ControlboxEventVisitor):
         logger.info(event)
 
 
+class BrewpiConstructorCodec:
+    """todo - create the constructor codec for brewpi"""
+    pass
+
+
+class BrewpiStateCodec:
+    pass
+
+
 def dump_device_info_events(connector, protocol: ControlboxProtocolV1):
     if not hasattr(protocol, 'controller'):
         controller = protocol.controller = Controlbox(connector)
-        events = controller.events = ControlboxApplicationAdapter(controller, BrewpiConstructorCodec(), BrewpiStateCodec())
+        events = controller.events = ControlboxStateless(controller, BrewpiConstructorCodec(), BrewpiStateCodec())
         events.listeners.add(BrewpiEvents())
     else:
         events = protocol.controller.events
@@ -61,7 +68,7 @@ def monitor():
     root = logging.getLogger()
     root.addHandler(logging.StreamHandler())
     root.setLevel(logging.INFO)
-    builder = ControllerDiscoveryFacade
+    builder = ControllerDiscoveryFactory
     logger.info("starting tester")
 
     def sniffer(conduit):
@@ -98,6 +105,7 @@ def monitor():
             sleep(1)
     finally:
         logger.error("exiting main loop")
+
 
 if __name__ == '__main__':
     monitor()

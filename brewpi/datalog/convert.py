@@ -68,5 +68,6 @@ def main():
             print('converting %s complete. Inserted %d rows into series %s. ' %
                   (name, i, dst_ts.name))
 
+
 if __name__ == '__main__':
     main()

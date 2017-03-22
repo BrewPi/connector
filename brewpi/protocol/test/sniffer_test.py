@@ -3,7 +3,7 @@ import unittest
 
 from hamcrest import assert_that, calling, raises, is_, instance_of
 
-from brewpi.protocol.factory import all_sniffers
+from brewpi.protocol.sniffer import all_sniffers
 from brewpi.protocol.v02x import ControllerProtocolV023
 from controlbox.conduit.base import DefaultConduit
 from controlbox.connector.base import UnknownProtocolError

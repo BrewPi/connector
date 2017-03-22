@@ -4,17 +4,17 @@ it defines the classes of objects that are found in the brewpi app.
 some of these may move down into the generic controlbox layer if they are useful and application-neutral.
 
 """
-
-from brewpi.controlbox import CurrentTicks, ValueProfile
-from brewpi.controlbox import SystemID
+from brewpi.controlbox.system_id import SystemID
+from brewpi.controlbox.time import CurrentTicks, ValueProfile
 from controlbox.protocol.controlbox import decode_id, encode_id
 from controlbox.stateful.classes import ElapsedTime
-from controlbox.stateful.controller import BufferDecoder, BufferEncoder, ControlboxObject, DynamicContainer, \
-    EncoderDecoderDefinition, ForwardingDecoder, ForwardingEncoder, ObjectTypeMapper, ReadWriteUserObject, \
-    ReadWriteValue, ShortDecoder, ShortEncoder, TypedControlbox
+from controlbox.stateful.controlbox import StatefulControlbox
+from controlbox.stateful.controller import ControlboxObject, DynamicContainer, \
+    ObjectTypeMapper
+from controlbox.stateless.codecs import BufferDecoder, BufferEncoder, ShortDecoder, ShortEncoder
 
 
-class BrewpiController(TypedControlbox):
+class BrewpiController(StatefulControlbox):
     """
     A Controlbox controller that is pre-configured with the brewpi application model.
     At present, this is simply the controller ID and current system time.
@@ -39,7 +39,7 @@ class BrewpiController(TypedControlbox):
         return ElapsedTime(self, self._sysroot, 1)
 
 
-class PersistentValueBase(EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, ForwardingDecoder):
+class PersistentValueBase:  # (EncoderDecoderDefinition, ReadWriteValue, ForwardingEncoder, ForwardingDecoder):
     """ This is split into a base class to support system and user persisted values. The default value type is
         a buffer. This can be changed by setting the encoder and decoder attributes. """
     decoder = BufferDecoder()
@@ -49,9 +49,8 @@ class PersistentValueBase(EncoderDecoderDefinition, ReadWriteValue, ForwardingEn
         return 0  # not known
 
 
-class PersistentValue(PersistentValueBase, ReadWriteUserObject):
+class PersistentValue(PersistentValueBase):  # ReadWriteUserObject):
     """ A user persistent value. """
-    type_id = 5
 
     def write_mask(self, value, mask):
         """ Allows a partial update of the value via a masked write. Wherever the mask bit has is set, the corresponding
@@ -73,11 +72,11 @@ class BangBangController:
     type_id = 8
 
 
-class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
+# todo - rework and generalize - this is a little too specific on the type of value
+class PersistChangeValue():  # ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWriteValue):
     """ A persistent value in the controller. The value is persisted when it the amount it changes from the
     last persisted value passes a certain threshold.
     Definition args: a tuple of (initial value:signed 16-bit, threshold: unsigned 16-bit). """
-    type_id = 9
     shortEnc = ShortEncoder()
     shortDec = ShortDecoder()
 
@@ -92,9 +91,8 @@ class PersistChangeValue(ReadWriteUserObject, ShortEncoder, ShortDecoder, ReadWr
         return cls.shortDec.decode(data_block[0:2]), cls.shortDec.decode(data_block[2:4])
 
 
-class IndirectValue(ReadWriteUserObject):
-    type_id = 0x0D
-
+class IndirectValue:  # (ReadWriteUserObject):
+    """a value that is a reference to another value by ID"""
     @classmethod
     def encode_definition(cls, value: ControlboxObject):
         return encode_id(value.id_chain)
@@ -103,9 +101,6 @@ class IndirectValue(ReadWriteUserObject):
     def decode_definition(cls, buf, controller, *args, **kwargs):
         id_chain = decode_id(buf)
         return controller.object_at(id_chain)
-
-    def encoded_len(self):
-        return self.definition.encoded_len()
 
     def decode(self, buf):
         return self.definition.decode(buf)
@@ -130,7 +125,8 @@ class MixinController(BrewpiController):
     """
 
     def __init__(self, connector, objectTypes=None):
-        super().__init__(connector, objectTypes or BuiltInObjectTypes())
+        # super().__init__(connector, objectTypes or BuiltInObjectTypes())
+        pass
 
     def create_current_ticks(self, container=None, slot=None) -> CurrentTicks:
         return self.create_object(CurrentTicks, None, container, slot)

@@ -1,11 +1,12 @@
 import operator
 
-from controlbox.stateful.controller import EmptyDefinition, LongDecoder, ObjectDefinition, ReadWriteUserObject, \
-    ReadableObject, ShortDecoder, ShortEncoder, UnsignedShortDecoder, UserObject
+from controlbox.stateful.controller import WritableObject, ReadableObject, UserObject
+from controlbox.stateless.api import ObjectDefinition
+from controlbox.stateless.codecs import UnsignedShortDecoder, ShortEncoder, ShortDecoder, LongDecoder, EmptyCodec
 from controlbox.support.mixins import CommonEqualityMixin
 
 
-class CurrentTicks(EmptyDefinition, ReadableObject, UserObject, LongDecoder):
+class CurrentTicks(EmptyCodec, ReadableObject, UserObject, LongDecoder):
     type_id = 3
 
 
@@ -95,7 +96,7 @@ class ValueProfileState(ObjectDefinition, CommonEqualityMixin):
         return 1 + 2 + len(self.steps) * 4
 
 
-class ValueProfile(ReadWriteUserObject):
+class ValueProfile(WritableObject):
     type_id = 6
 
     @classmethod

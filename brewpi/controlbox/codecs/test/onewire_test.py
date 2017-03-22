@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from brewpi.controlbox import OneWireAddress, OneWireCommandResult, OneWireBusRead
+from brewpi.controlbox.codecs.onewire import OneWireAddress, OneWireCommandResult, OneWireBusRead
 
 
 class OneWireAddressTest(TestCase):
@@ -8,11 +8,14 @@ class OneWireAddressTest(TestCase):
         self.assertEqual([], OneWireAddress.decode_addresses([]))
 
     def test_decode_addresses_single(self):
-        self.assertEqual([OneWireAddress([1,2,3,4,5,6,7,8])], OneWireAddress.decode_addresses([1,2,3,4,5,6,7,8]))
+        self.assertEqual([OneWireAddress(bytearray([1, 2, 3, 4, 5, 6, 7, 8]))],
+                         OneWireAddress.decode_addresses(bytearray([1, 2, 3, 4, 5, 6, 7, 8])))
 
     def test_decode_addresses_multiple(self):
-        self.assertEqual([OneWireAddress([1,2,3,4,5,6,7,8]), OneWireAddress([11,12,13,14,15,16,17,18])],
-                         OneWireAddress.decode_addresses([1,2,3,4,5,6,7,8,11,12,13,14,15,16,17,18]))
+        data = bytearray([1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18])
+        self.assertEqual([OneWireAddress(bytearray([1, 2, 3, 4, 5, 6, 7, 8])),
+                          OneWireAddress(bytearray([11, 12, 13, 14, 15, 16, 17, 18]))],
+                         OneWireAddress.decode_addresses(data))
 
 
 class OneWireBusTest(TestCase):
@@ -23,8 +26,8 @@ class OneWireBusTest(TestCase):
         self.assertEqual(OneWireBusRead(success=True), OneWireCommandResult().decode(None, [200]))
 
     def test_decode_success_addresses(self):
+        data = bytearray([0, 1, 2, 3, 4, 5, 6, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18])
         self.assertEqual(OneWireBusRead(success=True, addresses=[
-                OneWireAddress([1,2,3,4,5,6,7,8]),
-                OneWireAddress([11,12,13,14,15,16,17,18])]),
-                         OneWireCommandResult().decode(None, [0, 1,2,3,4,5,6,7,8, 11,12,13,14,15,16,17,18]))
-
+            OneWireAddress(bytearray([1, 2, 3, 4, 5, 6, 7, 8])),
+            OneWireAddress(bytearray([11, 12, 13, 14, 15, 16, 17, 18]))]),
+            OneWireCommandResult().decode(None, data))

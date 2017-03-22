@@ -3,13 +3,13 @@ import unittest
 from threading import Thread
 from time import sleep
 
-from brewpi.connector.controlbox.integration_test.base_test import BaseControllerTestHelper
-from brewpi.connector.controlbox.integration_test.indirect_value_test import IndirectValueTest
-from brewpi.connector.controlbox.integration_test.persistence_test import PersistentValueTest, PersistentChangeValueTest
-from brewpi.connector.controlbox.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from hamcrest import assert_that, is_, starts_with, equal_to
 from serial import Serial
 
+from brewpi.controlbox.integration_test.base_test import BaseControllerTestHelper
+from brewpi.controlbox.integration_test.indirect_value_test import IndirectValueTest
+from brewpi.controlbox.integration_test.persistence_test import PersistentValueTest, PersistentChangeValueTest
+from brewpi.controlbox.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from brewpi.controlbox.objects import ArduinoController
 from controlbox.config.config import configure_module
 from controlbox.connector.serialconn import SerialConnector

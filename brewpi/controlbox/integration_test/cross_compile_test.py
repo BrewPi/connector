@@ -2,13 +2,13 @@ import os
 import sys
 import unittest
 
-from brewpi.connector.controlbox.integration_test.base_test import GeneralControllerTests
-from brewpi.connector.controlbox.integration_test.control_loop_test import ControlLoopTest
-from brewpi.connector.controlbox.integration_test.indirect_value_test import IndirectValueTest
-from brewpi.connector.controlbox.integration_test.persistence_test import PersistentValueTest, PersistentChangeValueTest
-from brewpi.connector.controlbox.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from nose.plugins.attrib import attr
 
+from brewpi.controlbox.integration_test.base_test import GeneralControllerTests
+from brewpi.controlbox.integration_test.control_loop_test import ControlLoopTest
+from brewpi.controlbox.integration_test.indirect_value_test import IndirectValueTest
+from brewpi.controlbox.integration_test.persistence_test import PersistentValueTest, PersistentChangeValueTest
+from brewpi.controlbox.integration_test.time_test import SystemTimeTest, ValueProfileTest
 from brewpi.controlbox.objects import CrossCompileController
 from controlbox.config.config import configure_module
 from controlbox.connector.processconn import ProcessConnector

@@ -4,9 +4,13 @@ API to controllers running controlbox firmware.
 Specific subclasses may add features for specific controller revisions.
 """
 
+
 class ImmutableCollection:
+    """
+    Describes a non-mutable collection of things.
+    """
     def find(self, id):
-        """ retrieves an item by ID. The item is a stateful object with a conenction to the controller """
+        """ retrieves an item by ID. The item is a stateful object with a connection to the controller """
 
     def all(self):
         """ retrieves a dict of all the contained items, keyed by id """
@@ -26,7 +30,7 @@ class ValueCollection:
         """ retrieves all values, keyed by ID """
 
 
-class TempSensorsCollection(MutableCollection,ValueCollection):
+class TempSensorsCollection(MutableCollection, ValueCollection):
     family_ds18b20 = 0x28
 
     def all_onewire_addresses(self):
@@ -36,7 +40,7 @@ class TempSensorsCollection(MutableCollection,ValueCollection):
         """ finds a sensor by it's onewire address. """
 
 
-class OneWireSwitchesCollection(MutableCollection,ValueCollection):
+class OneWireSwitchesCollection(MutableCollection, ValueCollection):
     family_ds2413 = 0x3A
     family_ds2408 = 0x29
 
@@ -52,8 +56,6 @@ class OneWireSwitchesCollection(MutableCollection,ValueCollection):
         """ finds an actuator by onewire address and pio """
 
 
-
-
 class OneWireBus:
 
     def reset(self):
@@ -64,6 +66,10 @@ class OneWireBus:
 
     def search_family(self, family):
         """ enumerates items with the given family """
+
+
+class PinSwitchesCollection(ImmutableCollection):
+    pass
 
 
 class CBoxOneWireController:
@@ -93,17 +99,10 @@ class CBoxOneWireController:
         """ determiens all temp sensors on the bus that have no corresponding object """
 
 
-
-class PinSwitchesCollection(ImmutableCollection):
-
-
-
 class BrewpiSpark(CBoxOneWireController):
     """
     comes pre-configured with GPIO switches in the system profile, and the OneWire bus.
     """
-
-
 
 
 """

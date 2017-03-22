@@ -2,8 +2,8 @@ from time import sleep
 
 from hamcrest import greater_than, is_, assert_that, less_than, equal_to
 
-from brewpi.controlbox import BaseControllerTestHelper
-from brewpi.controlbox import ValueProfileState, ValueProfile
+from brewpi.controlbox.integration_test.base_test import BaseControllerTestHelper
+from brewpi.controlbox.time import ValueProfileState, ValueProfile
 
 
 class SystemTimeTest(BaseControllerTestHelper):

@@ -2,9 +2,10 @@ import unittest
 
 from hamcrest import assert_that, is_, equal_to
 
-from brewpi.controlbox import ValueProfileState, TimeValuePoint, ValueProfileInterpolation
+from brewpi.controlbox.time import ValueProfileState, ValueProfileInterpolation, TimeValuePoint
 
 
+@unittest.skip
 class ValueProfileStateTestCase(unittest.TestCase):
 
     def test_new_instances_equal(self):

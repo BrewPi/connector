@@ -2,8 +2,10 @@ from hamcrest import all_of, assert_that, calling, equal_to, greater_than, has_l
 from nose.plugins.attrib import attr
 from time import sleep
 
-from brewpi.controlbox import BaseControllerTestHelper
-from controlbox.stateful.controller import ControllerLoopState, DynamicContainer, FailedOperationError
+from brewpi.controlbox.integration_test.base_test import BaseControllerTestHelper
+from controlbox.stateful.controller import DynamicContainer
+from controlbox.stateful.control_loop import ControllerLoopState
+from controlbox.stateless.api import FailedOperationError
 
 
 @attr(fixture='v03x')

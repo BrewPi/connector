@@ -2,8 +2,7 @@ import collections
 from abc import abstractmethod
 from decimal import Decimal
 
-from controlbox.stateful.controller import Codec, LongCodec, LongDecoder, ShortCodec, ValueDecoder
-from controlbox.stateless.codecs import BaseState, ConnectorCodec
+from controlbox.stateless.codecs import BaseState, ShortCodec, LongDecoder, LongCodec, Codec, ValueDecoder
 
 
 def namedtuple_with_defaults(typename, field_names, default_values=()):
@@ -18,11 +17,13 @@ def namedtuple_with_defaults(typename, field_names, default_values=()):
 
 
 class OneWireAddress(BaseState):
-
     length = 8
 
     def __init__(self, address: bytearray):
         self.address = address
+
+    def __repr__(self):
+        return str(self.address)
 
     @staticmethod
     # todo in more recent code, decoding has been separated from the state objects
@@ -69,7 +70,7 @@ class OneWireCommand:
             super().__init__('family_search')
             self.family = family
 
-    all_commands = [ Noop, Reset, Search, FamilySearch ]
+    all_commands = [Noop, Reset, Search, FamilySearch]
 
     class Visitor:
         @abstractmethod
@@ -89,7 +90,7 @@ class OneWireCommand:
             pass
 
 
-class OneWireCommandResult(ConnectorCodec):
+class OneWireCommandResult(Codec):
     """
     Decodes the response from the OneWireBus object, which is
     the result of the command. The format is currently fixed, and not context sensitive.
@@ -111,7 +112,7 @@ class OneWireCommandResult(ConnectorCodec):
         return OneWireBusRead(success, addresses)
 
 
-class OneWireCommandsCodec(ConnectorCodec):
+class OneWireCommandsCodec(Codec):
     """
     Encodes a OneWireCommand object.
     """
@@ -120,7 +121,6 @@ class OneWireCommandsCodec(ConnectorCodec):
         return super().decode(type, data, mask)
 
     class EncodeVisitor(OneWireCommand.Visitor):
-
         def noop(self, noop):
             return bytearray([0])
 
@@ -130,7 +130,7 @@ class OneWireCommandsCodec(ConnectorCodec):
         def search(self, noop):
             return bytearray([2])
 
-        def family_search(self, family:OneWireCommand.FamilySearch):
+        def family_search(self, family: OneWireCommand.FamilySearch):
             return bytearray([3, family.family])
 
     def __init__(self):
@@ -140,8 +140,7 @@ class OneWireCommandsCodec(ConnectorCodec):
         return value.accept(self.visitor)
 
 
-class OneWireBusCodec(ConnectorCodec):
-
+class OneWireBusCodec(Codec):
     def __init__(self):
         self.encoder = OneWireCommandsCodec()
         self.deoder = OneWireCommandResult()
@@ -154,7 +153,6 @@ class OneWireBusCodec(ConnectorCodec):
 
 
 class OneWireTempSensorState(BaseState):
-
     def __init__(self, connected=None, temperature=None):
         self.connected = connected
         self.temperature = temperature
@@ -164,11 +162,11 @@ class LongTempDecoder(LongDecoder):
     """
     Decodes a temp_long_t type from the byte stream
     """
-    scale = Decimal(1<<8)
+    scale = Decimal(1 << 8)
 
     def _decode(self, buf):
         value = super().decode(buf)
-        return Decimal(value)/self.scale
+        return Decimal(value) / self.scale
 
 
 class FixedPointCodec(Codec):
@@ -177,7 +175,7 @@ class FixedPointCodec(Codec):
         self.scale = Decimal(scale)
 
     def encode(self, value):
-        return self.codec.encode(value*self.scale)
+        return self.codec.encode(value * self.scale)
 
     def decode(self, data, mask=None):
         return self.codec.decode(data) / self.scale
@@ -187,19 +185,21 @@ class TempCodec(FixedPointCodec):
     """
     Decodes a temp_t type from the byte stream
     """
+
     def __init__(self):
-        super().__init__(ShortCodec(), 1<<7)
+        super().__init__(ShortCodec(), 1 << 7)
 
 
 class LongTempCodec(FixedPointCodec):
     """
     Decodes a temp_t type from the byte stream
     """
+
     def __init__(self):
-        super().__init__(LongCodec(), 1<<8)
+        super().__init__(LongCodec(), 1 << 8)
 
 
-class OneWireTempSensorCodec(ConnectorCodec):
+class OneWireTempSensorCodec(Codec):
     def __init__(self):
         self.long_temp = LongTempCodec()
 
@@ -207,7 +207,7 @@ class OneWireTempSensorCodec(ConnectorCodec):
         return super().encode(type, value)
 
     def decode(self, type, data, mask=None):
-        connected = data[0]!=0
+        connected = data[0] != 0
         temperature = self.long_temp.decode(type, data[1:5])
         return OneWireTempSensorState(connected, temperature)
 
@@ -219,7 +219,6 @@ class OneWireTempSensorConfig(BaseState):
 
 
 class OneWireAddressDecoder(ValueDecoder):
-
     def _decode(self, buf):
         return OneWireAddress(buf[0:OneWireAddress.length])
 
@@ -228,24 +227,24 @@ class OneWireAddressDecoder(ValueDecoder):
 
 
 class OneWireAddressCodec(Codec):
-
     decoder = OneWireAddressDecoder()
 
     def encoded_len(self):
         return OneWireAddress.length
 
-    def encode(self, value:OneWireAddress):
+    def encode(self, value: OneWireAddress):
         return bytearray(value.address)
 
     def decode(self, data, mask=None):
         return self.decoder.decode(data)
 
 
-class ConnectorCodecAdapter(ConnectorCodec):
+class ConnectorCodecAdapter(Codec):
     """
     Removes the type parameter and forwards the calls to the
     more basic codec types.
     """
+
     def __init__(self, codec):
         self.codec = codec
 
@@ -256,11 +255,11 @@ class ConnectorCodecAdapter(ConnectorCodec):
         return self.codec.decode(data)
 
 
-class OneWireTempSensorConfigCodec(ConnectorCodec):
+class OneWireTempSensorConfigCodec(Codec):
     address = OneWireAddressCodec()
     offset = TempCodec()
 
-    def encode(self, type, value:OneWireTempSensorConfig):
+    def encode(self, type, value: OneWireTempSensorConfig):
         address_bytes = self.address.encode(value.address)
         offset_bytes = self.offset.encode(value.offset)
         return address_bytes + offset_bytes
