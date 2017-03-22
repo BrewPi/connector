@@ -1,8 +1,10 @@
 language: python
+python:
+ - "3.6"
+
 install:
- - pip install tox==2.3.1
+ - pip install tox-travis==0.8
  - pip install coveralls==1.1
- - git clone https://github.com/m-mcgowan/controlbox-connect-py -b develop --single-branch ../cbconnect-py
 
 script: tox
 
