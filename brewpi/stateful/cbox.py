@@ -40,7 +40,7 @@ class TempSensorsCollection(MutableCollection, ValueCollection):
         """ finds a sensor by it's onewire address. """
 
 
-class OneWireSwitchesCollection(MutableCollection, ValueCollection):
+class SwitchesCollection(MutableCollection, ValueCollection):
     family_ds2413 = 0x3A
     family_ds2408 = 0x29
 
@@ -70,39 +70,6 @@ class OneWireBus:
 
 class PinSwitchesCollection(ImmutableCollection):
     pass
-
-
-class CBoxOneWireController:
-    """
-    For controllers that are runnign ControlBox firmware, that expose a defult OneWire bus.
-    """
-
-    def __init__(self, connector):
-        pass
-
-    def onewire_bus(self, id=None) -> OneWireBus:
-        """ retrieves the onewire bus for the given ID. The default ID returns the default OneWire bus"""
-
-    def onewire_temp_sensors(self) -> TempSensorsCollection:
-        """ retrieves the collection of temperature sensors """
-
-    def onewire_switches(self) -> OneWireSwitchesCollection:
-        """
-        The actuators in the system.
-        :return:
-        """
-
-    def pinSwitchesContainer(self) -> PinSwitchesCollection:
-        """ retrieves the fixed collection of build-in GPIO switches. May be empty """
-
-    def uninstalled_temp_sensors(self):
-        """ determiens all temp sensors on the bus that have no corresponding object """
-
-
-class BrewpiSpark(CBoxOneWireController):
-    """
-    comes pre-configured with GPIO switches in the system profile, and the OneWire bus.
-    """
 
 
 """

@@ -1,6 +1,7 @@
 """
 Allocates new integer IDs. The use case for this is
 controllers that don't have their own unique ID.
+Not presently needed since all controllers have a built-in ID.
 """
 
 from contextlib import closing

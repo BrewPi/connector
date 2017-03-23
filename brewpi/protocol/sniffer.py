@@ -8,7 +8,7 @@ from controlbox.protocol.controlbox import ControlboxProtocolV1, \
 
 
 def brewpi_v03x_protocol_sniffer(line, conduit):
-    """
+    """knows how to recognise the annotations from the controlbox brewpi application
     """
     result = None
     line = line.strip()

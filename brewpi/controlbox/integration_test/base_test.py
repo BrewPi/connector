@@ -6,12 +6,11 @@ from unittest import skip
 from hamcrest import all_of, any_of, assert_that, calling, empty, equal_to, greater_than, has_length, is_, is_not, \
     less_than, raises
 
-from brewpi.connector import id_service
 from brewpi.controlbox.objects import MixinController, PersistentValue
 from brewpi.controlbox.time import CurrentTicks
+from brewpi.legacy import id_service
 from controlbox.config.config import configure_module
-from controlbox.stateful.controller import Container, DynamicContainer, RootContainer, \
-    Profile
+from controlbox.stateful.controller import Container, DynamicContainer, Profile, RootContainer
 from controlbox.stateless.api import FailedOperationError
 
 configure_module(sys.modules[__name__])

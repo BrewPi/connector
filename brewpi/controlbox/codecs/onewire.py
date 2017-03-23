@@ -98,7 +98,7 @@ class OneWireCommandResult(Codec):
     followed by N*8 bytes for the OneWire addresses of the devices found.
     """
 
-    def encode(self, type, value):
+    def encode(self, value):
         return super().encode(type, value)
 
     def decode(self, type, data, mask=None):
@@ -117,8 +117,8 @@ class OneWireCommandsCodec(Codec):
     Encodes a OneWireCommand object.
     """
 
-    def decode(self, type, data, mask=None):
-        return super().decode(type, data, mask)
+    def decode(self, data, mask=None):
+        return super().decode(data, mask)
 
     class EncodeVisitor(OneWireCommand.Visitor):
         def noop(self, noop):
@@ -136,7 +136,7 @@ class OneWireCommandsCodec(Codec):
     def __init__(self):
         self.visitor = OneWireCommandsCodec.EncodeVisitor()
 
-    def encode(self, type, value: OneWireCommandSupport):
+    def encode(self, value: OneWireCommandSupport):
         return value.accept(self.visitor)
 
 
@@ -145,10 +145,10 @@ class OneWireBusCodec(Codec):
         self.encoder = OneWireCommandsCodec()
         self.deoder = OneWireCommandResult()
 
-    def encode(self, type, value):
+    def encode(self, value):
         return self.encoder.encode(type, value)
 
-    def decode(self, type, data, mask=None):
+    def decode(self, data, mask=None):
         return self.decoder.decode(type, data, mask)
 
 
@@ -203,10 +203,10 @@ class OneWireTempSensorCodec(Codec):
     def __init__(self):
         self.long_temp = LongTempCodec()
 
-    def encode(self, type, value):
+    def encode(self, value):
         return super().encode(type, value)
 
-    def decode(self, type, data, mask=None):
+    def decode(self, data, mask=None):
         connected = data[0] != 0
         temperature = self.long_temp.decode(type, data[1:5])
         return OneWireTempSensorState(connected, temperature)
@@ -244,27 +244,27 @@ class ConnectorCodecAdapter(Codec):
     Removes the type parameter and forwards the calls to the
     more basic codec types.
     """
-
     def __init__(self, codec):
         self.codec = codec
 
-    def encode(self, type, value):
+    def encode(self, value):
         return self.codec.encode(value)
 
-    def decode(self, type, data, mask=None):
+    def decode(self, data, mask=None):
         return self.codec.decode(data)
 
 
 class OneWireTempSensorConfigCodec(Codec):
+    """ Codec for the configuration data for a onewire temp snesor"""
     address = OneWireAddressCodec()
     offset = TempCodec()
 
-    def encode(self, type, value: OneWireTempSensorConfig):
+    def encode(self, value: OneWireTempSensorConfig):
         address_bytes = self.address.encode(value.address)
         offset_bytes = self.offset.encode(value.offset)
         return address_bytes + offset_bytes
 
-    def decode(self, type, data, mask=None):
+    def decode(self, data, mask=None):
         # todo - not sure I like this hard coding of sizes
         address = self.address.decode(data[0:8])
         offset = self.offset.decode(data[8:10])
