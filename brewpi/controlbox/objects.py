@@ -9,7 +9,7 @@ from brewpi.controlbox.time import CurrentTicks, ValueProfile
 from controlbox.protocol.controlbox import decode_id, encode_id
 from controlbox.stateful.classes import ElapsedTime
 from controlbox.stateful.controlbox import StatefulControlbox
-from controlbox.stateful.controller import ControlboxObject, DynamicContainer, \
+from controlbox.stateful.api import ControlboxObject, DynamicContainer, \
     ObjectTypeMapper
 from controlbox.stateless.codecs import BufferDecoder, BufferEncoder, ShortDecoder, ShortEncoder
 
@@ -124,6 +124,8 @@ class MixinController(BrewpiController):
     Just a PoC for creating an application specific controller.
     """
 
+    # todo - not sure we need this
+
     def __init__(self, connector, objectTypes=None):
         # super().__init__(connector, objectTypes or BuiltInObjectTypes())
         pass
@@ -141,12 +143,13 @@ class MixinController(BrewpiController):
 
 class CrossCompileController(MixinController):
     """ additional options only available on the cross-compile """
-
+# todo - not sure we need this
     def __init__(self, connector):
         super().__init__(connector)
 
 
 class ArduinoController(MixinController):
+# todo - not sure we need this
 
     def __init__(self, connector):
         super().__init__(connector)

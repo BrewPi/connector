@@ -1,4 +1,4 @@
-from controlbox.stateful.controller import WritableObject
+from controlbox.stateful.api import WritableObject
 
 
 class SystemID(WritableObject):

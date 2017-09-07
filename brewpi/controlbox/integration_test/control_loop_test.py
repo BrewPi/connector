@@ -3,7 +3,7 @@ from nose.plugins.attrib import attr
 from time import sleep
 
 from brewpi.controlbox.integration_test.base_test import BaseControllerTestHelper
-from controlbox.stateful.controller import DynamicContainer
+from controlbox.stateful.api import DynamicContainer
 from controlbox.stateful.control_loop import ControllerLoopState
 from controlbox.stateless.api import FailedOperationError
 

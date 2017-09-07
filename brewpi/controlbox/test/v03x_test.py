@@ -4,7 +4,7 @@ from unittest import skip
 from hamcrest import assert_that, equal_to, is_
 
 from controlbox.protocol.controlbox import Controlbox
-from controlbox.stateful.controller import Container, RootContainer, Profile
+from controlbox.stateful.api import Container, RootContainer, Profile
 
 
 @skip('api being refactored')

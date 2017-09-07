@@ -10,7 +10,7 @@ from brewpi.controlbox.objects import MixinController, PersistentValue
 from brewpi.controlbox.time import CurrentTicks
 from brewpi.legacy import id_service
 from controlbox.config.config import configure_module
-from controlbox.stateful.controller import Container, DynamicContainer, Profile, RootContainer
+from controlbox.stateful.api import Container, DynamicContainer, Profile, RootContainer
 from controlbox.stateless.api import FailedOperationError
 
 configure_module(sys.modules[__name__])

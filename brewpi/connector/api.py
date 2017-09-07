@@ -3,7 +3,7 @@ The API provided by the connector
 """
 from brewpi.stateful.cbox import OneWireBus, PinSwitchesCollection, SwitchesCollection
 from brewpi.stateful.cbox import TempSensorsCollection
-from controlbox.stateful.controller import Profile, RootContainer, ControlboxObject
+from controlbox.stateful.api import Profile, RootContainer, ControlboxObject
 
 
 class EventSource:

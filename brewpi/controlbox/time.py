@@ -1,6 +1,6 @@
 import operator
 
-from controlbox.stateful.controller import WritableObject, ReadableObject, UserObject
+from controlbox.stateful.api import WritableObject, ReadableObject, UserObject
 from controlbox.stateless.api import ObjectDefinition
 from controlbox.stateless.codecs import UnsignedShortDecoder, ShortEncoder, ShortDecoder, LongDecoder, EmptyCodec
 from controlbox.support.mixins import CommonEqualityMixin
