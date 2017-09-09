@@ -6,6 +6,16 @@ from controlbox.stateless.codecs import DictionaryMappingCodecRepo, IdentityCode
 ConnectorType = namedtuple_with_defaults('ConnectorType', ['id', 'state', 'config'])
 
 
+def _state_codecs(all):
+    map = {(type.id, type.state) for type in all if type.state is not None}
+    return DictionaryMappingCodecRepo(dict(map))
+
+
+def _config_codecs(all):
+    map = {type.id: type.config for type in all if type.config is not None}
+    return DictionaryMappingCodecRepo(dict(map))
+
+
 class ConnectorTypes():
     """This describes the application types defined in the brewpi controller"""
     # todo - all applications need this so push down into cbconnect-py
@@ -15,16 +25,6 @@ class ConnectorTypes():
     one_wire_temp_sensor = ConnectorType(7, OneWireTempSensorCodec, OneWireTempSensorConfigCodec)
 
     all = [device_id, scaled_time, one_wire_bus, one_wire_temp_sensor]
-
-    @staticmethod
-    def _state_codecs(all):
-        map = {(type.id, type.state) for type in all if type.state is not None}
-        return DictionaryMappingCodecRepo(dict(map))
-
-    @staticmethod
-    def _config_codecs(all):
-        map = {type.id: type.config for type in all if type.config is not None}
-        return DictionaryMappingCodecRepo(dict(map))
 
     _cached_state_repo = _state_codecs(all)
     _cached_config_repo = _config_codecs(all)

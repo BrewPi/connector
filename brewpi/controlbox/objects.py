@@ -148,8 +148,9 @@ class CrossCompileController(MixinController):
         super().__init__(connector)
 
 
-class ArduinoController(MixinController):
 # todo - not sure we need this
+
+class ArduinoController(MixinController):
 
     def __init__(self, connector):
         super().__init__(connector)
